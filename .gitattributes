@@ -1,0 +1,3 @@
+# Payload vá script game: byte phải giữ NGUYÊN XI (hash đối chiếu + ghi thẳng lên server)
+# -text = git không bao giờ chuyển đổi CRLF/LF cho các file này
+backend/patches/* -text
