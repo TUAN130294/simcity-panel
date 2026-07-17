@@ -542,8 +542,47 @@ function switchTab(name) {
   if (name === "guide" && !$("guideBody").dataset.loaded) { $("guideBody").dataset.loaded = "1"; loadGuide(); }
 }
 
+/* ---- kiểm tra bản mới trên GitHub ---- */
+async function checkForUpdate() {
+  try {
+    const r = await api("/api/version");
+    if (!r.ok || !r.update_available) return;
+    if (sessionStorage.getItem("upd-dismissed") === r.latest) return; // đã bấm "Để sau" trong phiên này
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+    ov.innerHTML = `<div style="background:#f5ead3;color:#3a2c1a;border:2px solid #8d6e63;border-radius:10px;max-width:420px;padding:22px 26px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:15px">
+        <div style="font-size:17px;font-weight:bold;margin-bottom:10px">🔔 Đã có bản mới ${r.latest}</div>
+        <div style="margin-bottom:16px">Bạn đang dùng bản ${r.current}. Cập nhật mất ~10 giây, panel sẽ tự khởi động lại, cài đặt kết nối được giữ nguyên.</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn sm" id="updLater">Để sau</button>
+          <button class="btn sm primary" id="updNow">Cập nhật ngay</button>
+        </div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#updLater").onclick = () => { sessionStorage.setItem("upd-dismissed", r.latest); ov.remove(); };
+    ov.querySelector("#updNow").onclick = async () => {
+      const btn = ov.querySelector("#updNow");
+      btn.disabled = true; btn.textContent = "Đang cập nhật…";
+      const res = await api("/api/update", jbody({}));
+      if (!res.ok) { toast(res.error, "err"); btn.disabled = false; btn.textContent = "Cập nhật ngay"; return; }
+      btn.textContent = "Đang khởi động lại…";
+      // panel thoát rồi tự mở lại — chờ nó lên rồi tải lại trang
+      const t0 = Date.now();
+      const poll = async () => {
+        try {
+          const chk = await fetch("/api/version", { cache: "no-store" });
+          if (chk.ok) { location.reload(); return; }
+        } catch (e) { /* chưa lên lại — thử tiếp */ }
+        if (Date.now() - t0 < 90000) setTimeout(poll, 1500);
+        else { btn.textContent = "Chưa thấy panel lên lại — thử bấm shortcut SimCity Panel"; }
+      };
+      setTimeout(poll, 5000);
+    };
+  } catch (e) { /* offline hoặc lỗi mạng: im lặng, không làm phiền */ }
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   await loadSettings();
+  checkForUpdate();
   $("btnSettings").onclick = () => $("settingsModal").classList.remove("hidden");
   $("btnCloseSettings").onclick = () => $("settingsModal").classList.add("hidden");
   $("btnSaveSettings").onclick = saveSettings;

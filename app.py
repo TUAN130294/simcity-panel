@@ -23,6 +23,7 @@ from backend import backup_service
 from backend import ini_config_parser as iniparse
 from backend import seasonal_event_service
 from backend import event_patch_service
+from backend import update_service
 from backend import server_config_catalog as servercat
 from backend import droprate_service
 from backend import detect_service
@@ -266,6 +267,22 @@ def set_droprate():
     try:
         svc, _ = _svc()
         res = droprate_service.apply(svc, body.get("scope"), body.get("mult"))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/version", methods=["GET"])
+def get_version():
+    """Bản đang chạy + bản mới nhất trên GitHub (offline → coi như không có bản mới)."""
+    return jsonify({"ok": True, **update_service.check()})
+
+
+@app.route("/api/update", methods=["POST"])
+def do_update():
+    """Tải bản mới về chép đè (giữ settings.json) rồi panel tự khởi động lại."""
+    try:
+        res = update_service.apply_update()
         return jsonify({"ok": True, **res})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
