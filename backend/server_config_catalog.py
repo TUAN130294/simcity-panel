@@ -17,9 +17,9 @@ SOURCES = [
         "groups": [
             {"title": "🌱 Tân thủ & khởi tạo", "fields": [
                 {"key": "CFG_HoTroTanThu", "label": "Bật hỗ trợ tân thủ", "widget": "toggle",
-                 "desc": "BẬT: nhân vật mới được nhận hỗ trợ tân thủ (level, đồ khởi đầu)."},
+                 "desc": "BẬT: nhân vật cấp 1 ĐĂNG NHẬP lần đầu được nhận hỗ trợ — đôn lên 'Cấp khởi tạo' bên dưới (mỗi nhân vật chỉ nhận 1 lần)."},
                 {"key": "Level_KhoiTao", "label": "Cấp khởi tạo nhân vật mới", "widget": "number", "unit": "cấp", "min": 1, "max": 200, "step": 1,
-                 "desc": "Nhân vật vừa tạo sẽ được đôn lên cấp này."},
+                 "desc": "Nhân vật cấp 1 đăng nhập được đôn lên cấp này (cần BẬT hỗ trợ tân thủ). Đang để 1 = không đôn gì cả — muốn tân thủ vào game là cấp 90 thì đặt 90. ĐÂY mới là ô quyết định cấp nhân vật mới, không phải chế độ test."},
                 {"key": "CFG_SkillNhapMon", "label": "Kỹ năng tặng khi nhập môn", "widget": "number", "min": 0, "max": 3, "step": 1,
                  "desc": "0 = mặc định; 1 = tặng đến kỹ năng 6x; 2 = kỹ năng 6x full hệ; 3 = kỹ năng 6x tất cả phái."},
                 {"key": "nLevelThienTu", "label": "Cấp tối đa đồ Thiên Tử", "widget": "number", "min": 0, "max": 10, "step": 1,
@@ -83,13 +83,14 @@ SOURCES = [
                 {"key": "CFG_Xu_Boss_ThuyTacDauLinh", "label": "Xu Boss Thủy Tặc Đầu Lĩnh", "widget": "number", "min": 0, "max": 1000, "step": 1, "desc": "Số xu thưởng khi hạ Thủy Tặc Đầu Lĩnh."},
                 {"key": "CFG_Xu_Boss_ST9x", "label": "Xu Boss Sát Thủ 9x", "widget": "number", "min": 0, "max": 1000, "step": 1, "desc": "Số xu thưởng khi hạ Boss Sát Thủ cấp 9x."},
             ]},
-            {"title": "🧪 Chế độ test (cẩn thận khi mở server thật)", "fields": [
-                {"key": "CFG_ChayThuNghiem", "label": "Bật chế độ chạy thử nghiệm", "widget": "toggle",
-                 "desc": "BẬT: nhân vật mới nhận level + tiền test bên dưới. Server thật nên TẮT."},
-                {"key": "nlevel_test", "label": "Level test", "widget": "number", "unit": "cấp", "min": 1, "max": 200, "step": 1, "desc": "Cấp cấp sẵn cho nhân vật khi test."},
-                {"key": "nKimNguyenBao", "label": "KNB test", "widget": "number", "min": 0, "max": 1000000000, "step": 100, "desc": "Kim Nguyên Bảo phát khi test."},
-                {"key": "nTienDong", "label": "Tiền đồng test", "widget": "number", "min": 0, "max": 1000000000, "step": 100, "desc": "Tiền đồng phát khi test."},
-                {"key": "nNganLuong", "label": "Ngân lượng test", "widget": "number", "min": 0, "max": 1000000000, "step": 100000, "desc": "Ngân lượng phát khi test."},
+            {"title": "🧪 Chế độ test (cẩn thận khi mở server thật)", "note": "Test KHÔNG tự cộng gì lúc tạo nhân vật — nó mở thêm menu trong LỆNH BÀI TÂN THỦ (vật phẩm phát sẵn trong hành trang khi đăng nhập). Muốn nhân vật mới tự có cấp cao: chỉnh 'Cấp khởi tạo' ở nhóm Tân thủ.", "fields": [
+                {"key": "CFG_ChayThuNghiem", "label": "Bật menu test trong Lệnh Bài Tân Thủ", "widget": "toggle",
+                 "desc": "BẬT: bấm Lệnh Bài Tân Thủ có thêm mục 'Nhận hỗ trợ Test nhân vật' (nhận cấp/tiền bên dưới), 'Gọi hoạt động Game nhanh' (mở boss, Tống Kim, Thất Thành...), dịch chuyển nhanh. Server thật nên TẮT."},
+                {"key": "nlevel_test", "label": "Cấp nhận từ menu test", "widget": "number", "unit": "cấp", "min": 1, "max": 200, "step": 1,
+                 "desc": "Bấm 'Nhận hỗ trợ Test nhân vật' trong Lệnh Bài Tân Thủ sẽ được nâng tới cấp này."},
+                {"key": "nKimNguyenBao", "label": "KNB nhận từ menu test", "widget": "number", "min": 0, "max": 1000000000, "step": 100, "desc": "Kim Nguyên Bảo phát khi bấm nhận hỗ trợ test."},
+                {"key": "nTienDong", "label": "Tiền đồng nhận từ menu test", "widget": "number", "min": 0, "max": 1000000000, "step": 100, "desc": "Tiền đồng phát khi bấm nhận hỗ trợ test."},
+                {"key": "nNganLuong", "label": "Ngân lượng nhận từ menu test", "widget": "number", "min": 0, "max": 1000000000, "step": 100000, "desc": "Ngân lượng phát khi bấm nhận hỗ trợ test."},
             ]},
             {"title": "🎛️ Bật / tắt tính năng máy chủ", "note": "Mỗi công tắc = 1 tính năng lớn. Đổi xong phải restart.", "fields": [
                 {"key": "CFG_ThienTu", "label": "Trang bị Thiên Tử", "widget": "toggle", "desc": "Hệ thống nâng cấp đồ Thiên Tử."},
@@ -155,7 +156,7 @@ SOURCES = [
                 {"key": "CFG_fenghuo_hero", "label": "Anh hùng Phong Hỏa", "widget": "toggle", "desc": ""},
                 {"key": "CFG_revival", "label": "Tính năng hồi sinh (revival)", "widget": "toggle", "desc": ""},
             ]},
-            {"title": "🎪 Sự kiện cổ (2005–2010)", "note": "Event của bản gốc ngày xưa — bật để nghịch chơi; có thể thiếu NPC/tài nguyên, bật xong nhớ test kỹ.", "fields": [
+            {"title": "🎪 Sự kiện cổ (2005–2010)", "note": "Bật cờ CHỈ làm vật phẩm/script event hoạt động — CHƯA có nguồn ra đồ event (hiện không quái nào rơi, không NPC event nào được đặt trong npcs.txt). Muốn event chạy thật phải thêm nguồn ra: đổi bảng rơi đồ của quái sang bảng event, thêm NPC event, hoặc GM phát đồ. Client ĐÃ có sẵn tài nguyên (settings/event + hình trong pak) — KHÔNG cần sửa client.", "fields": [
                 {"key": "CFG_vm_birthplan", "label": "SN VLTK 1 tuổi (2006)", "widget": "toggle", "desc": ""},
                 {"key": "CFG_Act2Years2007", "label": "SN VLTK 2 tuổi (2007)", "widget": "toggle", "desc": ""},
                 {"key": "CFG_pingzi", "label": "SN VLTK 3 tuổi (2008)", "widget": "toggle", "desc": ""},
