@@ -12,12 +12,12 @@ function setConn(s, t) { $("connDot").className = "dot " + s; $("connText").text
 /* ---------- settings ---------- */
 async function loadSettings() {
   settings = await api("/api/settings");
-  ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "reload_cmd"]
+  ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "vmx_path", "reload_cmd"]
     .forEach((k) => { const el = $("s_" + k); if (el) el.value = settings[k] ?? ""; });
   $("encoding").value = settings.encoding || "latin-1";
 }
 async function saveSettings() {
-  const p = {}; ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "reload_cmd"]
+  const p = {}; ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "vmx_path", "reload_cmd"]
     .forEach((k) => p[k] = $("s_" + k).value); p.encoding = $("encoding").value;
   settings = await api("/api/settings", jbody(p)); $("settingsMsg").textContent = "Đã lưu."; toast("Đã lưu cài đặt", "ok");
 }
@@ -56,31 +56,78 @@ async function testConn() {
   setConn("off", "Đang test..."); const r = await api("/api/test", { method: "POST" });
   if (r.ok) { setConn("on", "Đã kết nối"); toast("Kết nối OK", "ok"); } else { setConn("err", "Lỗi kết nối"); toast(r.error, "err"); }
 }
-let reloadTimer = null;
-async function reloadServer() {
-  if (!confirm("Restart server game? Người chơi sẽ bị ngắt vài phút trong lúc server khởi động lại.")) return;
-  const r = await api("/api/reload", { method: "POST" });
-  if (!r.ok) { toast("Không gửi được lệnh restart: " + r.error, "err"); return; }
-  toast("⏳ Đã gửi lệnh restart — server sẽ khởi động lại trong 1–3 phút, panel sẽ tự báo khi lên.", "");
-  setConn("off", "Đang khởi động lại…");
-  $("btnReload").disabled = true;
-  clearInterval(reloadTimer);
-  let tries = 0, sawDown = false;
-  reloadTimer = setInterval(async () => {
+/* ---------- bật/tắt nguồn (máy ảo + game) ---------- */
+let powerTimer = null;
+
+function pwPaint(vm, game, note) {
+  const setPill = (el, state, txt) => { el.className = "pw-state " + state; el.textContent = txt; };
+  setPill($("pwVmState"), vm === true ? "on" : vm === false ? "off" : "unknown",
+    vm === true ? "ĐANG BẬT" : vm === false ? "ĐANG TẮT" : "không rõ");
+  setPill($("pwGameState"), game === true ? "on" : "off", game === true ? "ĐANG CHẠY" : "ĐANG TẮT");
+  $("btnVmStart").disabled = vm === true;
+  $("btnVmStop").disabled = vm === false;
+  $("btnGameStart").disabled = vm === false || game === true;
+  $("btnGameStop").disabled = vm === false || game === false;
+  $("btnGameReload").disabled = vm === false;
+  if (note) $("powerMsg").textContent = note;
+}
+
+async function pwRefresh() {
+  const r = await api("/api/power");
+  if (!r.ok) { $("powerMsg").textContent = r.error || "Không lấy được trạng thái."; return r; }
+  pwPaint(r.vm, r.game, r.vm_note || "");
+  // nhịp tim ở thanh trên cùng
+  if (r.game) setConn("on", "Game đang chạy");
+  else if (r.vm === true) setConn("err", "Máy ảo bật, game chưa chạy");
+  else if (r.vm === false) setConn("off", "Máy ảo đang tắt");
+  return r;
+}
+
+function pwWatch(want, label) {
+  // theo dõi tới khi đạt trạng thái mong muốn: want(r) -> true là xong
+  clearInterval(powerTimer);
+  let tries = 0;
+  powerTimer = setInterval(async () => {
     tries++;
-    const st = await api("/api/status");
-    const up = st.ok && st.game;
-    if (!up) sawDown = true;                    // chờ thấy nó TẮT rồi mới tính lần BẬT lại
-    if (up && (sawDown || tries > 8)) {         // đã lên lại (hoặc quá 2 phút mà vẫn luôn UP)
-      clearInterval(reloadTimer); $("btnReload").disabled = false;
-      setConn("on", "Đã kết nối");
-      toast("✅ Server đã khởi động xong!", "ok");
-    } else if (tries >= 24) {                   // ~6 phút vẫn chưa lên
-      clearInterval(reloadTimer); $("btnReload").disabled = false;
-      setConn("err", "Chưa thấy server lên");
-      toast("Server khởi động lâu bất thường — kiểm tra màn hình VM hoặc file /tmp/simcity-panel-reload.log trên VM.", "err");
+    const r = await pwRefresh();
+    if (r && r.ok && want(r)) {
+      clearInterval(powerTimer); toast(`✅ ${label}`, "ok");
+      if (r.game) loadAll();
+    } else if (tries >= 40) {   // ~10 phút
+      clearInterval(powerTimer);
+      toast(`Chờ ${label.toLowerCase()} quá lâu — kiểm tra cửa sổ VMware.`, "err");
     }
   }, 15000);
+}
+
+async function vmPower(action) {
+  const isStop = action === "stop";
+  if (isStop && !confirm("Tắt MÁY ẢO? Toàn bộ server sẽ dừng, người chơi bị ngắt.\n\nApp dùng lệnh tắt sạch bên trong nên an toàn cho dữ liệu.")) return;
+  if (!isStop && !confirm("Bật máy ảo? Mất 1–2 phút để hệ điều hành khởi động.")) return;
+  $("powerMsg").textContent = isStop ? "Đang gửi lệnh tắt sạch..." : "Đang bật máy ảo...";
+  const r = await api("/api/power/vm", jbody({ action }));
+  if (!r.ok) { toast(r.error, "err"); $("powerMsg").textContent = "❌ " + r.error; return; }
+  const cleared = (r.cleared_locks && r.cleared_locks.length)
+    ? ` (đã dọn ${r.cleared_locks.length} khoá cũ do lần trước tắt không sạch)` : "";
+  $("powerMsg").textContent = (r.message || "Đã gửi lệnh.") + cleared;
+  toast(r.message || "Đã gửi lệnh.", "ok");
+  await pwRefresh();
+  if (!isStop) pwWatch((x) => x.vm === true, "Máy ảo đã bật — giờ có thể Bật game.");
+  else pwWatch((x) => x.vm === false, "Máy ảo đã tắt hẳn.");
+}
+
+async function gamePower(action) {
+  const label = { start: "Bật game", stop: "Tắt game", reload: "Khởi động lại game" }[action];
+  const warn = action === "start" ? "Bật game server? Mất 2–4 phút."
+    : action === "stop" ? "TẮT game server? Người chơi sẽ bị ngắt ngay."
+      : "Khởi động lại game server? Người chơi bị ngắt vài phút.";
+  if (!confirm(warn)) return;
+  const r = await api("/api/power/game", jbody({ action }));
+  if (!r.ok) { toast(r.error, "err"); $("powerMsg").textContent = "❌ " + r.error; return; }
+  $("powerMsg").textContent = `⏳ Đã gửi lệnh "${label}" — đang chạy trong máy ảo, panel sẽ tự báo khi xong.`;
+  toast(`⏳ ${label}: đã gửi lệnh, chờ 2–4 phút...`, "");
+  if (action === "stop") pwWatch((x) => x.game === false, "Game đã tắt.");
+  else pwWatch((x) => x.game === true, "Game đã chạy!");
 }
 
 /* ---------- change tracking ---------- */
@@ -400,7 +447,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   $("btnDetect").onclick = detectServer;
   $("btnImport").onclick = importClientConfig;
   $("btnTest").onclick = testConn;
-  $("btnReload").onclick = reloadServer;
+  $("btnPower").onclick = () => { $("powerModal").classList.remove("hidden"); pwRefresh(); };
+  $("btnClosePower").onclick = () => { $("powerModal").classList.add("hidden"); clearInterval(powerTimer); };
+  $("btnVmStart").onclick = () => vmPower("start");
+  $("btnVmStop").onclick = () => vmPower("stop");
+  $("btnGameStart").onclick = () => gamePower("start");
+  $("btnGameStop").onclick = () => gamePower("stop");
+  $("btnGameReload").onclick = () => gamePower("reload");
   $("btnLoad").onclick = loadAll;
   $("btnSave").onclick = saveAll;
   $("search").oninput = applySearch;

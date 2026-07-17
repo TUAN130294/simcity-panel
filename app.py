@@ -23,6 +23,7 @@ from backend import ini_config_parser as iniparse
 from backend import server_config_catalog as servercat
 from backend import droprate_service
 from backend import detect_service
+from backend import power_service
 
 app = Flask(__name__)
 PORT = 5666
@@ -390,6 +391,73 @@ def server_status():
     except Exception as e:
         # SSH chưa vào được (VM đang bận/khởi động) -> coi như DOWN, không phải lỗi
         return jsonify({"ok": True, "game": False, "note": str(e)})
+
+
+@app.route("/api/power", methods=["GET"])
+def power_status():
+    """Trạng thái 2 tầng: máy ảo VMware và game server bên trong."""
+    s = cfg.load_settings()
+    vmrun = power_service.find_vmrun()
+    vmx = s.get("vmx_path") or ""
+    if vmrun and not vmx:
+        vmx = power_service.find_vmx() or ""      # dò giúp, chưa lưu
+    res = {"ok": True, "vmrun": vmrun, "vmx": vmx, "vm": None, "game": None}
+    if not vmrun:
+        res["vm_note"] = "Không thấy VMware Workstation trên máy này — chỉ bật/tắt được game."
+    elif not vmx:
+        res["vm_note"] = "Chưa biết file .vmx của máy ảo. Mở ⚙ Cài đặt để chỉ đường."
+    else:
+        try:
+            res["vm"] = power_service.vm_running(vmrun, vmx)
+        except Exception as e:
+            res["vm_note"] = str(e)
+    if res["vm"] is not False:      # máy ảo đang bật (hoặc không rõ) thì mới hỏi game
+        try:
+            svc, _ = _svc()
+            res["game"] = power_service.game_running(svc)
+        except Exception:
+            res["game"] = False     # SSH không vào được -> coi như game chưa chạy
+    else:
+        res["game"] = False
+    return jsonify(res)
+
+
+@app.route("/api/power/vm", methods=["POST"])
+def power_vm():
+    """body: {action: 'start'|'stop'} — bật/tắt MÁY ẢO."""
+    body = request.get_json(force=True) or {}
+    action = body.get("action")
+    s = cfg.load_settings()
+    vmrun = power_service.find_vmrun()
+    vmx = s.get("vmx_path") or power_service.find_vmx() or ""
+    if not vmrun:
+        return jsonify({"ok": False, "error": "Không tìm thấy vmrun.exe (VMware Workstation)."}), 400
+    if not vmx or not os.path.exists(vmx):
+        return jsonify({"ok": False, "error": "Không tìm thấy file .vmx của máy ảo. "
+                                              "Vào ⚙ Cài đặt điền đường dẫn."}), 400
+    try:
+        if action == "start":
+            return jsonify(power_service.vm_start(vmrun, vmx))
+        if action == "stop":
+            return jsonify(power_service.vm_stop(lambda: _svc()[0], vmrun, vmx))
+        return jsonify({"ok": False, "error": "Lệnh không hợp lệ"}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/power/game", methods=["POST"])
+def power_game():
+    """body: {action: 'start'|'stop'|'reload'} — bật/tắt/khởi động lại GAME SERVER."""
+    body = request.get_json(force=True) or {}
+    action = body.get("action")
+    try:
+        svc, s = _svc()
+        root = (s.get("reload_cmd") or "").split("cd ", 1)[-1].split(" &&", 1)[0].strip() \
+               or "/root/quanlyserver/2.3.1"
+        power_service.game_cmd(svc, action, root)
+        return jsonify({"ok": True, "started": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 @app.route("/api/backups", methods=["GET"])

@@ -21,6 +21,16 @@ VMRUN_CANDIDATES = [
 # jx.sh mở cửa sổ terminal trong máy ảo nên cần DISPLAY của phiên đồ hoạ.
 _JX_ENV = "DISPLAY=:0 XAUTHORITY=/root/.Xauthority"
 
+# jx.sh chạy từng tiến trình bằng `xfce4-terminal --tab`:
+#  - đã có cửa sổ terminal -> lệnh gắn thêm tab rồi thoát ngay -> script chạy tiếp.
+#  - CHƯA có cửa sổ nào (VM vừa boot) -> nó phải tự mở cửa sổ đầu tiên và NẰM LUÔN ở đó
+#    -> jx.sh kẹt vĩnh viễn ngay tiến trình đầu, các tiến trình sau không bao giờ chạy.
+# Nên luôn mở sẵn 1 cửa sổ nền (setsid = tách hẳn, không chết theo phiên SSH).
+_ENSURE_TERM = (
+    "pgrep -x xfce4-terminal >/dev/null 2>&1 || "
+    "{ setsid xfce4-terminal --title=SimCityPanel-Host >/dev/null 2>&1 & sleep 5; }"
+)
+
 
 def find_vmrun():
     for p in VMRUN_CANDIDATES:
@@ -29,25 +39,38 @@ def find_vmrun():
     return None
 
 
-def find_vmx():
-    """Dò file .vmx (cấu hình máy ảo) ở các ổ đĩa. Trả về đường dẫn hoặc None."""
+# Tên gợi ý máy ảo game (để chọn đúng khi máy có nhiều máy ảo).
+_VMX_HINTS = ("jx", "vltk", "volam", "vo lam", "server", "game", "1click")
+
+
+def find_vmx_all():
+    """Mọi file .vmx tìm được trên các ổ đĩa (dò tới 4 cấp thư mục)."""
     import string
-    pats = []
+    hits = []
     for letter in string.ascii_uppercase:
         drive = f"{letter}:\\"
         if not os.path.exists(drive):
             continue
-        # dò nông: <ổ>\*\*.vmx và <ổ>\*\*\*.vmx (đủ cho cách sắp thư mục thường gặp)
-        pats.append(drive + "*\\*.vmx")
-        pats.append(drive + "*\\*\\*.vmx")
-    for pat in pats:
-        try:
-            hits = glob.glob(pat)
-        except OSError:
-            continue
-        if hits:
-            return hits[0]
-    return None
+        for depth in range(1, 5):           # <ổ>\*.vmx ... <ổ>\*\*\*\*.vmx
+            pat = drive + "\\".join(["*"] * depth) + ".vmx" if depth == 1 \
+                  else drive + "\\".join(["*"] * (depth - 1)) + "\\*.vmx"
+            try:
+                hits.extend(glob.glob(pat))
+            except OSError:
+                continue
+    return hits
+
+
+def find_vmx():
+    """Đoán file .vmx của máy ảo game. Ưu tiên đường dẫn có tên gợi ý game."""
+    hits = find_vmx_all()
+    if not hits:
+        return None
+    for h in hits:
+        low = h.lower()
+        if any(k in low for k in _VMX_HINTS):
+            return h
+    return hits[0]
 
 
 def _run(cmd, timeout=90):
@@ -131,7 +154,7 @@ def game_cmd(svc, action, root="/root/quanlyserver/2.3.1"):
     """Chạy jx.sh start|stop|reload ở chế độ nền (các lệnh này mất vài phút)."""
     if action not in ("start", "stop", "reload"):
         raise ValueError("Lệnh không hợp lệ: " + str(action))
-    inner = f"cd {root} && {_JX_ENV} ./jx.sh {action}"
+    inner = f"export {_JX_ENV}; {_ENSURE_TERM}; cd {root} && ./jx.sh {action}"
     wrapped = ("nohup bash -c '" + inner.replace("'", "'\\''") +
                f"' >/tmp/simcity-panel-{action}.log 2>&1 & echo STARTED")
     out, err = svc.run(wrapped, timeout=20)

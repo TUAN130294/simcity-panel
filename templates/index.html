@@ -23,7 +23,7 @@
       <span id="connDot" class="dot off"></span>
       <span id="connText">Chưa kết nối</span>
       <button id="btnTest" class="btn">Test</button>
-      <button id="btnReload" class="btn danger">Restart server</button>
+      <button id="btnPower" class="btn danger">⏻ Nguồn</button>
       <button id="btnSettings" class="btn">⚙</button>
     </div>
   </header>
@@ -100,6 +100,42 @@
     </section>
   </main>
 
+  <div id="powerModal" class="modal hidden">
+    <div class="modal-box">
+      <h2>⏻ Bật / tắt máy chủ</h2>
+      <div class="pw-row">
+        <div class="pw-info">
+          <div class="pw-name">🖥️ Máy ảo VMware</div>
+          <div class="pw-desc">Cỗ máy chạy toàn bộ server. Tắt cái này là tắt tất.</div>
+        </div>
+        <span id="pwVmState" class="pw-state">đang xem...</span>
+        <div class="pw-btns">
+          <button id="btnVmStart" class="btn sm primary">▶ Bật</button>
+          <button id="btnVmStop" class="btn sm danger">■ Tắt</button>
+        </div>
+      </div>
+      <div class="pw-row">
+        <div class="pw-info">
+          <div class="pw-name">🎮 Game server</div>
+          <div class="pw-desc">Tiến trình game bên trong máy ảo. Máy ảo phải bật trước.</div>
+        </div>
+        <span id="pwGameState" class="pw-state">đang xem...</span>
+        <div class="pw-btns">
+          <button id="btnGameStart" class="btn sm primary">▶ Bật</button>
+          <button id="btnGameStop" class="btn sm danger">■ Tắt</button>
+          <button id="btnGameReload" class="btn sm">⟳ Khởi động lại</button>
+        </div>
+      </div>
+      <div class="advanced-hint pw-hint">Bật máy ảo mất 1–2 phút mới vào được SSH; bật game thêm 2–4 phút nữa.
+        Panel tự cập nhật trạng thái ở trên. <b>Tắt máy ảo</b> dùng lệnh tắt sạch bên trong (không "rút phích") nên an toàn cho dữ liệu.</div>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button id="btnClosePower" class="btn">Đóng</button>
+      </div>
+      <div id="powerMsg" class="msg"></div>
+    </div>
+  </div>
+
   <div id="settingsModal" class="modal hidden">
     <div class="modal-box">
       <h2>⚙ Cài đặt kết nối</h2>
@@ -112,6 +148,7 @@
         <label class="wide">Server root<input id="s_server_root"></label>
         <label class="wide">Client folder<input id="s_client_dir"></label>
         <label class="wide">Client config.ini<input id="s_client_config_ini"></label>
+        <label class="wide">File máy ảo (.vmx) — để bật/tắt máy ảo<input id="s_vmx_path" placeholder="Để trống = app tự dò"></label>
         <label class="wide">Lệnh restart<input id="s_reload_cmd"></label>
         <label>Encoding<select id="encoding">
           <option value="latin-1">latin-1</option><option value="utf-8">utf-8</option><option value="gbk">gbk</option>

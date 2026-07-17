@@ -24,6 +24,7 @@ DEFAULTS = {
     "server_root": "/home/jxser/server1",
     "client_dir": "",
     "client_config_ini": "",
+    "vmx_path": "",       # file .vmx của máy ảo -> để bật/tắt máy ảo bằng vmrun
     "encoding": "latin-1",
     # jx.sh KHÔNG có lệnh 'restart'; 'reload' cần DISPLAY vì script mở cửa sổ terminal trên VM.
     "reload_cmd": "cd /root/quanlyserver/2.3.1 && DISPLAY=:0 XAUTHORITY=/root/.Xauthority ./jx.sh reload",
