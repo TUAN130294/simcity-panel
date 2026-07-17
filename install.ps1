@@ -97,8 +97,14 @@ if ($LASTEXITCODE -ne 0) { Say "Cai thu vien that bai. Xem thong bao loi ben tre
 Say "Xong thu vien." 'Green'
 
 # ---------- 4. Tao shortcut ngoai Desktop ----------
-$pythonw = Join-Path (Split-Path $Py) 'pythonw.exe'
-if (-not (Test-Path $pythonw)) { $pythonw = $Py }   # khong co pythonw thi dung python thuong
+# Chon ban chay AN de bam shortcut khong hien cua so den:
+#   python.exe -> pythonw.exe  |  py.exe (bo khoi chay) -> pyw.exe
+$pyDir = Split-Path $Py
+$pythonw = $Py
+foreach ($cand in @('pythonw.exe', 'pyw.exe')) {
+    $p = Join-Path $pyDir $cand
+    if (Test-Path $p) { $pythonw = $p; break }
+}
 $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'SimCity Panel.lnk'
 $ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut($lnk)
