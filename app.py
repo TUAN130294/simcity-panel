@@ -22,6 +22,7 @@ from backend import tcvn3_codec
 from backend import backup_service
 from backend import ini_config_parser as iniparse
 from backend import seasonal_event_service
+from backend import event_patch_service
 from backend import server_config_catalog as servercat
 from backend import droprate_service
 from backend import detect_service
@@ -266,6 +267,26 @@ def set_droprate():
         svc, _ = _svc()
         res = droprate_service.apply(svc, body.get("scope"), body.get("mult"))
         return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/event-patch", methods=["GET"])
+def get_event_patch_status():
+    """Máy chủ đã 'kích hoạt chỉnh event' chưa (script gốc cần vá mới chỉnh được)."""
+    try:
+        svc, _ = _svc()
+        return jsonify({"ok": True, **event_patch_service.status(svc)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/event-patch", methods=["POST"])
+def apply_event_patch():
+    """Tự vá script event trên máy chủ (snapshot từng file, khôi phục được)."""
+    try:
+        svc, _ = _svc()
+        return jsonify({"ok": True, **event_patch_service.apply(svc)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 

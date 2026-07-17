@@ -1,0 +1,50 @@
+[
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/config.lua",
+  "sha_stock": "56f12b1151eb1f4cb06e0980b4e9f3f5d00d8e50",
+  "sha_patched": "ca8c13ca6e7640d37cf301279b85d9ebd7559ec3",
+  "payload": "simcity-config.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/plugins/pthanhthi.lua",
+  "sha_stock": "af25cb07785624df19f5b83fb9dc5a37ef37acad",
+  "sha_patched": "71e0fbbf41725f48d4d68ed4d3a2fde7283d6dbd",
+  "payload": "simcity-pthanhthi.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/plugins/pnpcinfo.lua",
+  "sha_stock": "39d58249fe2c4318d6fd9ca6edac4a29f55e96b6",
+  "sha_patched": "3bff69d7f7f7f3841d7eb8fdbfff6be96cd1b11e",
+  "payload": "simcity-pnpcinfo.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/plugins/ptieuthiep.lua",
+  "sha_stock": "17fc321858c1d66f755a6c24f1f98a80e0d2f10c",
+  "sha_patched": "9c522f31fbb79d989a9cdaa3061db96b1e39ab51",
+  "payload": "simcity-ptieuthiep.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/components/sim.core.lua",
+  "sha_stock": "e5ce955464d892a358bd445c2872259d885e693a",
+  "sha_patched": "e9614f699609d10b34298c5c3f611b497017eb25",
+  "payload": "simcity-sim.core.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/components/sim.movement.lua",
+  "sha_stock": "26d25b3924e5eb8434d356fd38152e2f5084c0b3",
+  "sha_patched": "46704ed2fed7bc5e8cfd9b1a1b3be2f1771e698c",
+  "payload": "simcity-sim.movement.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/components/sim.fun.lua",
+  "sha_stock": "5522c21752c893330c15355c21bc710bd913a48b",
+  "sha_patched": "c02354c4bb6868fbfd591708bd7e33840c2edcd8",
+  "payload": "simcity-sim.fun.lua"
+ },
+ {
+  "path": "/home/jxser/server1/script/global/nobitaxd/vdk/simcity/class/group_fighter.class.lua",
+  "sha_stock": "06dbe40718085b42dcba725d3f85deeb4acb685a",
+  "sha_patched": "c44a60130e1d2b64dcba19ad887e3c6d10789df1",
+  "payload": "simcity-group_fighter.class.lua"
+ }
+]

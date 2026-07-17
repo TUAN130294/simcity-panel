@@ -281,6 +281,27 @@ async function renderSeasonalEvents(container) {
     <div class="grid se-grid"></div>`;
   container.appendChild(wrap);
   const grid = wrap.querySelector(".se-grid");
+  // Máy chủ còn script gốc thì các ô event chưa có tác dụng — mời kích hoạt (panel tự vá, có backup)
+  const ps = await api("/api/event-patch");
+  if (ps.ok && !ps.ready) {
+    const need = ps.files.filter((f) => f.state === "stock").length;
+    const unk = ps.files.filter((f) => f.state === "unknown" || f.state === "missing").length;
+    const banner = document.createElement("div"); banner.className = "field";
+    banner.innerHTML = `<div class="f-top"><div class="f-label">⚙️ Máy chủ này chưa kích hoạt chỉnh event</div>
+        <div class="f-ctrl"><button class="btn sm primary se-activate">Kích hoạt ngay</button></div></div>
+      <div class="f-desc">Script gốc của game ghi cứng tỉ lệ rơi/thông số event nên panel chưa chỉnh được.
+        Bấm Kích hoạt để panel tự sửa ${need} file script (mỗi file đều tự backup — khôi phục được ở tab Backup).${
+        unk ? ` Có ${unk} file khác bản gốc sẽ được BỎ QUA để không phá script riêng của bạn.` : ""}
+        Kích hoạt xong phải Restart server.</div>`;
+    banner.querySelector(".se-activate").onclick = async () => {
+      if (!confirm("Panel sẽ sửa các file script event trên máy chủ (tự backup từng file). Tiếp tục?")) return;
+      const res = await api("/api/event-patch", jbody({}));
+      if (!res.ok) { toast(res.error, "err"); return; }
+      toast(`✅ Đã vá ${res.patched.length} file${res.skipped.length ? ", bỏ qua " + res.skipped.length : ""}. Restart server để áp dụng.`, "ok");
+      loadServerCfg();  // nạp lại để các ô event hiện giá trị thật
+    };
+    grid.appendChild(banner);
+  }
   const r = await api("/api/seasonal-events");
   if (!r.ok) { grid.innerHTML = `<div class="empty">${r.error}</div>`; return; }
   r.events.forEach((ev) => {
