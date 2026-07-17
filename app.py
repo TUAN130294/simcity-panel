@@ -42,9 +42,22 @@ def _guard_remote(path, root):
     return path
 
 
+def _asset_version():
+    """Dấu thời gian của css/js — gắn vào link để trình duyệt KHÔNG dùng bản cũ trong
+    bộ nhớ đệm sau khi cập nhật (đổi file = đổi số = tải lại, khỏi cần Ctrl+F5)."""
+    stamp = 0
+    base = os.path.dirname(os.path.abspath(__file__))
+    for rel in ("static/style.css", "static/app.js"):
+        try:
+            stamp = max(stamp, int(os.path.getmtime(os.path.join(base, rel))))
+        except OSError:
+            pass
+    return stamp
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", v=_asset_version())
 
 
 @app.route("/api/settings", methods=["GET"])
