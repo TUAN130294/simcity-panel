@@ -40,6 +40,21 @@ Nếu dò không ra: nhập tay **VM Host** (IP máy ảo), **User** (`root`), *
 
 ---
 
+## Tính năng nổi bật
+
+- **Cài 1 lệnh, cập nhật 1 lệnh** — tự cài Python, tự tạo shortcut, giữ nguyên cài đặt cũ.
+- **Tự dò máy chủ game** — đọc `config.ini` của client hoặc quét mạng LAN, không cần biết IP/SSH.
+- **Hơn 200 thông số nhãn tiếng Việt có giải thích** — bot SimCity, exp/drop, Tống Kim, Phong Hỏa
+  Liên Thành, shop, đấu giá, truy nã, chống nghiện... mọi nhãn đều đã đối chiếu với code thật.
+- **Một nút "Kích hoạt chỉnh event"** — server còn nguyên bản gốc? Panel tự nhận diện và tự vá
+  21 file script (đối chiếu từng byte, file lạ tự bỏ qua, tất cả đều có backup) để mọi ô đều có tác dụng.
+- **Mở event 2 hệ:** 40+ sự kiện cổ 2005–2010 (đồ rơi qua Túi nguyên liệu — chỉnh được tỉ lệ rơi,
+  cấp quái) và 8 **Event theo mùa 2010–2012 trọn gói** (Giáng Sinh 2011 có Ông già Noel, tuần lộc,
+  hộp quà giờ vàng; Trung Thu 2010; Tình nhân 2012...) — bật/tắt 1 nút, tự vá hạn dùng vật phẩm cũ.
+- **Chỉnh tỉ lệ rơi đồ toàn server theo nhóm** (x0.5 → x50, trả về gốc bất cứ lúc nào).
+- **An toàn là mặc định** — mọi lần ghi đè đều chụp bản cũ vào tab Backup (khôi phục 1 nút),
+  sửa đúng dòng giữ nguyên từng byte TCVN3/GBK, panel chỉ chạy trên máy bạn (`127.0.0.1`).
+
 ## Các tab
 
 | Tab | Dùng để làm gì |
