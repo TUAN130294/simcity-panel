@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimCity Control Panel</title>
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Philosopher:ital,wght@0,400;0,700;1,700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">⚔️</div>
+      <div>
+        <div class="brand-title">SimCity <span class="brand-accent">— Giang Hồ Lệnh</span></div>
+        <div class="brand-sub">Điều khiển bách tính giang hồ — lưu thẳng vào server</div>
+      </div>
+    </div>
+    <div class="conn">
+      <span id="connDot" class="dot off"></span>
+      <span id="connText">Chưa kết nối</span>
+      <button id="btnTest" class="btn">Test</button>
+      <button id="btnReload" class="btn danger">Restart server</button>
+      <button id="btnSettings" class="btn">⚙</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="panel">🎛️ Bot SimCity</button>
+    <button class="tab" data-tab="server">⚙️ Máy Chủ</button>
+    <button class="tab" data-tab="advanced">🧩 Nâng cao (file khác)</button>
+    <button class="tab" data-tab="lists">📜 Danh sách dữ liệu</button>
+    <button class="tab" data-tab="editor">📝 Sửa file thô</button>
+    <button class="tab" data-tab="backups">🕐 Backup</button>
+    <button class="tab" data-tab="guide">❓ Hướng dẫn sửa hành vi</button>
+  </nav>
+
+  <div class="toolbar">
+    <input id="search" class="search" placeholder="🔎 Tìm thông số... (vd: máu, chat, tầm đánh, THANHTHI_SIZE)">
+    <div class="toolbar-right">
+      <button id="btnLoad" class="btn">🔄 Nạp thông số</button>
+      <span id="changeCount" class="chip-change hidden">0 thay đổi</span>
+      <button id="btnSave" class="btn primary" disabled>💾 Lưu vào game</button>
+    </div>
+  </div>
+
+  <main class="content">
+    <section id="tab-panel" class="pane active">
+      <div id="panelBody">
+        <div class="empty">Bấm <b>Nạp thông số</b> để lấy dữ liệu từ server.</div>
+      </div>
+    </section>
+
+    <section id="tab-server" class="pane">
+      <div class="advanced-hint">Thông số của <b>máy chủ chính</b> (ngoài hệ bot SimCity): tỉ lệ <b>Exp/tiền rơi</b>, Tống Kim, Phong Hỏa Liên Thành, boss, bật/tắt tính năng… Sửa → <b>Lưu vào game</b> → <b>Restart server</b> mới áp dụng. Mọi lần lưu đều có trong tab Backup để khôi phục.</div>
+      <div id="serverBody"><div class="empty">Bấm <b>Nạp thông số</b> để lấy dữ liệu từ server.</div></div>
+    </section>
+
+    <section id="tab-advanced" class="pane">
+      <div class="advanced-hint">Đây là các thông số nằm rải ở những file khác ngoài <code>config.lua</code>. Tất cả đều có nhãn tiếng Việt; ô gắn <b>[nội bộ]</b> là bánh răng của hệ thống — chỉ xem cho biết, <b>đừng đổi</b>. Các ô còn lại sửa và Lưu như bình thường.</div>
+      <div id="advancedBody"><div class="empty">Bấm <b>Nạp thông số</b> để quét.</div></div>
+    </section>
+
+    <section id="tab-lists" class="pane">
+      <div class="advanced-hint">Sửa <b>danh sách chuỗi</b> của bot (câu chat, tên bang…). Thêm/xoá/sửa dòng rồi <b>Lưu danh sách</b>. Chữ Việt hiển thị và gõ <b>Unicode bình thường</b> (gõ Unikey như chat Facebook) — khi lưu app tự chuyển về mã TCVN3 để game đọc đúng. Lưu ý: TCVN3 không có chữ HOA kèm dấu (Ộ, Ấ…) nên khi vào game sẽ thành chữ thường. Nhớ Restart server để áp dụng.</div>
+      <div id="listsBody"><div class="empty">Bấm <b>Nạp thông số</b> để tải danh sách.</div></div>
+    </section>
+
+    <section id="tab-backups" class="pane">
+      <div class="advanced-hint">Mỗi lần bấm Lưu, app tự <b>chụp lại bản cũ</b> của file trước khi ghi đè — kèm ghi chú <b>sửa gì, lúc nào</b>. Nếu game lỗi sau khi chỉnh, tìm bản trước thời điểm chỉnh sai rồi bấm <b>Khôi phục</b> (khôi phục xong nhớ Restart server). Bấm Khôi phục cũng tự chụp lại bản hiện tại nên không sợ mất gì.</div>
+      <div id="backupsBody"><div class="empty">Đang tải lịch sử backup...</div></div>
+    </section>
+
+    <section id="tab-guide" class="pane">
+      <div id="guideBody" class="guide"><div class="empty">Đang tải hướng dẫn...</div></div>
+    </section>
+
+    <section id="tab-editor" class="pane editor-pane">
+      <aside class="tree">
+        <div class="tree-head">
+          <button id="btnUp" class="btn sm">⬆ Lên</button>
+          <button id="btnHome" class="btn sm">🏠 SimCity</button>
+        </div>
+        <div id="curPath" class="cur-path"></div>
+        <ul id="treeList"></ul>
+      </aside>
+      <div class="editor-wrap">
+        <div class="editor-bar">
+          <span id="openPath" class="open-path">Chưa mở file</span>
+          <label class="viet-toggle" title="Hiển thị chữ TCVN3 thành tiếng Việt; khi lưu tự chuyển ngược lại">
+            <input type="checkbox" id="chkViet" checked> Hiện tiếng Việt (TCVN3)
+          </label>
+          <button id="btnSaveFile" class="btn primary sm" disabled>💾 Save</button>
+        </div>
+        <textarea id="code" spellcheck="false"></textarea>
+      </div>
+    </section>
+  </main>
+
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-box">
+      <h2>⚙ Cài đặt kết nối</h2>
+      <div class="form">
+        <label>VM Host<input id="s_host"></label>
+        <label>Port<input id="s_port" type="number"></label>
+        <label>User<input id="s_user"></label>
+        <label>Password<input id="s_password" type="password" placeholder="******** = giữ nguyên"></label>
+        <label class="wide">SimCity path<input id="s_simcity_path"></label>
+        <label class="wide">Server root<input id="s_server_root"></label>
+        <label class="wide">Client folder<input id="s_client_dir"></label>
+        <label class="wide">Client config.ini<input id="s_client_config_ini"></label>
+        <label class="wide">Lệnh restart<input id="s_reload_cmd"></label>
+        <label>Encoding<select id="encoding">
+          <option value="latin-1">latin-1</option><option value="utf-8">utf-8</option><option value="gbk">gbk</option>
+        </select></label>
+      </div>
+      <div class="modal-actions">
+        <button id="btnDetect" class="btn primary">🔍 Tự dò server</button>
+        <button id="btnImport" class="btn">📥 Nhập từ config.ini</button>
+        <span class="spacer"></span>
+        <button id="btnCloseSettings" class="btn">Đóng</button>
+        <button id="btnSaveSettings" class="btn primary">Lưu</button>
+      </div>
+      <div id="settingsMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

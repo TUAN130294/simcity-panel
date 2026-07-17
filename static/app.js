@@ -1,0 +1,424 @@
+"use strict";
+const $ = (id) => document.getElementById(id);
+const jbody = (o) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) });
+let settings = {};
+let curDir = "", openFilePath = null;
+const changes = new Map();   // key `${path}:${line}` -> {path,line,value}
+
+async function api(p, o) { const r = await fetch(p, o); return r.json().catch(() => ({ ok: false, error: "phản hồi lỗi" })); }
+function toast(m, k) { const t = $("toast"); t.textContent = m; t.className = "toast " + (k || ""); clearTimeout(t._t); t._t = setTimeout(() => t.classList.add("hidden"), 4500); }
+function setConn(s, t) { $("connDot").className = "dot " + s; $("connText").textContent = t; }
+
+/* ---------- settings ---------- */
+async function loadSettings() {
+  settings = await api("/api/settings");
+  ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "reload_cmd"]
+    .forEach((k) => { const el = $("s_" + k); if (el) el.value = settings[k] ?? ""; });
+  $("encoding").value = settings.encoding || "latin-1";
+}
+async function saveSettings() {
+  const p = {}; ["host", "port", "user", "password", "simcity_path", "server_root", "client_dir", "client_config_ini", "reload_cmd"]
+    .forEach((k) => p[k] = $("s_" + k).value); p.encoding = $("encoding").value;
+  settings = await api("/api/settings", jbody(p)); $("settingsMsg").textContent = "Đã lưu."; toast("Đã lưu cài đặt", "ok");
+}
+async function detectServer() {
+  const btn = $("btnDetect"), msg = $("settingsMsg");
+  btn.disabled = true; btn.textContent = "⏳ Đang dò...";
+  msg.textContent = "Đang tìm máy chủ game (đọc config.ini của client, nếu không có thì quét mạng nội bộ — mất tới 30 giây)...";
+  try {
+    const r = await api("/api/detect", jbody({
+      user: $("s_user").value, port: $("s_port").value,
+      // mật khẩu chỉ gửi khi người dùng đã gõ thật (dấu ******** = giữ nguyên cái cũ)
+      password: $("s_password").value === "********" ? "" : $("s_password").value,
+    }));
+    if (r.ok && r.found) {
+      $("s_host").value = r.host; $("s_port").value = r.port || 22; $("s_user").value = r.user || "root";
+      if (r.password) $("s_password").value = r.password;
+      if (r.client_config_ini) $("s_client_config_ini").value = r.client_config_ini;
+      if (r.client_dir) $("s_client_dir").value = r.client_dir;
+      msg.textContent = `✅ Tìm thấy máy chủ ${r.host} (nguồn: ${r.source})` +
+        (r.verified ? " — đã đăng nhập thử và thấy thư mục game." : " — CHƯA đăng nhập thử được, kiểm tra lại mật khẩu hoặc máy ảo đã bật chưa.");
+      toast(r.verified ? "Đã dò ra server, bấm Lưu để dùng" : "Tìm thấy máy nhưng chưa đăng nhập được", r.verified ? "ok" : "err");
+    } else {
+      msg.textContent = "❌ " + (r.error || "Không tìm thấy máy chủ nào.");
+      toast(r.error || "Không tìm thấy", "err");
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = "🔍 Tự dò server";
+  }
+}
+async function importClientConfig() {
+  const r = await api("/api/import-client-config", jbody({ ini_path: $("s_client_config_ini").value }));
+  if (r.ok) { settings = r.settings; await loadSettings(); toast("Nhập config.ini OK", "ok"); }
+  else toast(r.error, "err");
+}
+async function testConn() {
+  setConn("off", "Đang test..."); const r = await api("/api/test", { method: "POST" });
+  if (r.ok) { setConn("on", "Đã kết nối"); toast("Kết nối OK", "ok"); } else { setConn("err", "Lỗi kết nối"); toast(r.error, "err"); }
+}
+let reloadTimer = null;
+async function reloadServer() {
+  if (!confirm("Restart server game? Người chơi sẽ bị ngắt vài phút trong lúc server khởi động lại.")) return;
+  const r = await api("/api/reload", { method: "POST" });
+  if (!r.ok) { toast("Không gửi được lệnh restart: " + r.error, "err"); return; }
+  toast("⏳ Đã gửi lệnh restart — server sẽ khởi động lại trong 1–3 phút, panel sẽ tự báo khi lên.", "");
+  setConn("off", "Đang khởi động lại…");
+  $("btnReload").disabled = true;
+  clearInterval(reloadTimer);
+  let tries = 0, sawDown = false;
+  reloadTimer = setInterval(async () => {
+    tries++;
+    const st = await api("/api/status");
+    const up = st.ok && st.game;
+    if (!up) sawDown = true;                    // chờ thấy nó TẮT rồi mới tính lần BẬT lại
+    if (up && (sawDown || tries > 8)) {         // đã lên lại (hoặc quá 2 phút mà vẫn luôn UP)
+      clearInterval(reloadTimer); $("btnReload").disabled = false;
+      setConn("on", "Đã kết nối");
+      toast("✅ Server đã khởi động xong!", "ok");
+    } else if (tries >= 24) {                   // ~6 phút vẫn chưa lên
+      clearInterval(reloadTimer); $("btnReload").disabled = false;
+      setConn("err", "Chưa thấy server lên");
+      toast("Server khởi động lâu bất thường — kiểm tra màn hình VM hoặc file /tmp/simcity-panel-reload.log trên VM.", "err");
+    }
+  }, 15000);
+}
+
+/* ---------- change tracking ---------- */
+function ckey(f) { return `${f.path}:${f.line}`; }
+function updateChangeCount() {
+  const n = changes.size, b = $("changeCount");
+  b.textContent = n + " thay đổi"; b.classList.toggle("hidden", n === 0);
+  $("btnSave").disabled = n === 0;
+}
+function markChange(f, row, newVal) {
+  const orig = f.value == null ? "" : String(f.value);
+  if (String(newVal) !== orig) { changes.set(ckey(f), { path: f.path, line: f.line, value: newVal, label: f.label || f.name || f.key }); row.classList.add("changed"); }
+  else { changes.delete(ckey(f)); row.classList.remove("changed"); }
+  updateChangeCount();
+}
+
+/* ---------- field renderer ---------- */
+function makeField(f) {
+  const row = document.createElement("div");
+  row.className = "field";
+  const orig = f.value == null ? "" : String(f.value);
+  row.dataset.search = ((f.label || "") + " " + (f.name || f.key || "") + " " + (f.desc || "")).toLowerCase();
+
+  const warn = f.found === false ? ' <span class="f-warn">(không thấy trong file)</span>' : "";
+  const top = document.createElement("div"); top.className = "f-top";
+  const lab = document.createElement("div"); lab.className = "f-label"; lab.innerHTML = (f.label || f.name) + warn;
+  const ctrlWrap = document.createElement("div"); ctrlWrap.className = "f-ctrl";
+  top.appendChild(lab); top.appendChild(ctrlWrap);
+
+  const desc = document.createElement("div"); desc.className = "f-desc"; desc.textContent = f.desc || "";
+  const meta = document.createElement("div"); meta.className = "f-meta";
+  meta.innerHTML = `<code>${f.name || f.key}</code>` + (f.value != null ? ` <span class="f-cur">· hiện tại: ${f.value}</span>` : "");
+
+  const disabled = f.found === false && f.line == null;
+  if (f.widget === "toggle") {
+    const on = orig !== "" && orig !== "0";
+    const sw = document.createElement("label"); sw.className = "switch";
+    const inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = on; inp.disabled = disabled;
+    const sl = document.createElement("span"); sl.className = "slider";
+    const state = document.createElement("span"); state.className = "toggle-state"; state.textContent = on ? "BẬT" : "TẮT";
+    sw.appendChild(inp); sw.appendChild(sl);
+    inp.onchange = () => { state.textContent = inp.checked ? "BẬT" : "TẮT"; markChange(f, row, inp.checked ? "1" : "0"); };
+    ctrlWrap.appendChild(state); ctrlWrap.appendChild(sw);
+  } else if (f.widget === "number") {
+    const step = f.step || 1;
+    const box = document.createElement("div"); box.className = "stepper";
+    const minus = document.createElement("button"); minus.textContent = "−";
+    const inp = document.createElement("input"); inp.type = "text"; inp.inputMode = "decimal"; inp.value = orig; inp.disabled = disabled;
+    const plus = document.createElement("button"); plus.textContent = "+";
+    const clamp = (v) => { let n = parseFloat(v); if (isNaN(n)) return v; if (f.min != null) n = Math.max(f.min, n); if (f.max != null) n = Math.min(f.max, n); return String(n); };
+    const bump = (d) => { let n = parseFloat(inp.value || "0"); if (isNaN(n)) n = 0; inp.value = clamp(n + d * step); markChange(f, row, inp.value); };
+    minus.onclick = () => bump(-1); plus.onclick = () => bump(1);
+    inp.oninput = () => markChange(f, row, inp.value);
+    inp.onblur = () => { inp.value = clamp(inp.value); markChange(f, row, inp.value); };
+    box.appendChild(minus); box.appendChild(inp); box.appendChild(plus);
+    ctrlWrap.appendChild(box);
+    if (f.unit) { const u = document.createElement("span"); u.className = "unit"; u.textContent = f.unit; ctrlWrap.appendChild(u); }
+  } else {
+    const inp = document.createElement("input"); inp.type = "text"; inp.value = orig; inp.disabled = disabled;
+    inp.oninput = () => markChange(f, row, inp.value);
+    ctrlWrap.appendChild(inp);
+  }
+  row.appendChild(top); row.appendChild(desc); row.appendChild(meta);
+  return row;
+}
+function renderGroup(container, title, note, fields, fileTag) {
+  const g = document.createElement("div"); g.className = "group";
+  const h = document.createElement("div"); h.className = "group-head";
+  h.innerHTML = `<span class="caret">▾</span><span class="group-title">${title}</span>` +
+    `<span class="group-count">${fields.length}</span>` +
+    (note ? `<span class="group-note">${note}</span>` : "") +
+    (fileTag ? `<span class="file-tag">${fileTag}</span>` : "");
+  const grid = document.createElement("div"); grid.className = "grid";
+  fields.forEach((f) => grid.appendChild(makeField(f)));
+  g.appendChild(h); g.appendChild(grid); container.appendChild(g);
+  // Cụm gập/mở được: bấm tiêu đề để thu gọn/bung, nhớ trạng thái theo tên nhóm.
+  const key = "collapse:" + title;
+  const saved = localStorage.getItem(key);
+  const defaultCollapsed = title.startsWith("🎪") || title.startsWith("🗂️"); // nhóm ít dùng gập sẵn
+  if (saved === "1" || (saved === null && defaultCollapsed)) g.classList.add("collapsed");
+  h.onclick = () => {
+    g.classList.toggle("collapsed");
+    localStorage.setItem(key, g.classList.contains("collapsed") ? "1" : "0");
+  };
+}
+
+/* ---------- loaders ---------- */
+async function loadPanel() {
+  setConn("off", "Đang nạp...");
+  const enc = $("encoding").value;
+  const r = await api("/api/config?encoding=" + enc);
+  if (!r.ok) { setConn("err", "Lỗi"); toast(r.error, "err"); return; }
+  setConn("on", "Đã kết nối");
+  changes.clear(); updateChangeCount();
+  const body = $("panelBody"); body.innerHTML = "";
+  r.groups.forEach((g) => renderGroup(body, g.title, g.note, g.fields));
+  if (r.extras && r.extras.length) renderGroup(body, "🗂️ Khác (chưa gắn nhãn)", "Hằng số khác trong config.lua", r.extras);
+  applySearch();
+  toast("Đã nạp thông số config.lua", "ok");
+}
+async function loadServerCfg() {
+  const r = await api("/api/server-config?encoding=" + $("encoding").value);
+  const body = $("serverBody"); body.innerHTML = "";
+  if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  renderDroprate(body);
+  r.sources.forEach((src) => {
+    if (src.error) { renderGroup(body, "⚠️ " + src.title, "Không đọc được: " + src.error, []); return; }
+    const tag = src.path.split("/").pop();
+    src.groups.forEach((g) => renderGroup(body, g.title, g.note, g.fields, tag));
+    if (src.extras && src.extras.length) renderGroup(body, src.extras_title || "🗂️ Khác", "", src.extras, tag);
+  });
+  applySearch();
+}
+
+/* ---- hệ số rơi đồ ---- */
+async function renderDroprate(container) {
+  const wrap = document.createElement("div"); wrap.className = "group";
+  wrap.innerHTML = `<div class="group-head"><span class="group-title">🎁 Tỉ lệ rơi đồ (toàn server)</span>
+    <span class="group-note">x1 = nguyên bản, x2 = rơi gấp đôi... Áp dụng NGAY vào file, restart để có hiệu lực.</span></div>
+    <div class="grid drop-grid"></div>`;
+  container.appendChild(wrap);
+  const grid = wrap.querySelector(".drop-grid");
+  const r = await api("/api/droprate");
+  if (!r.ok) { grid.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  r.scopes.forEach((sc) => {
+    const card = document.createElement("div"); card.className = "field";
+    card.dataset.search = ("rơi đồ drop rate " + sc.title).toLowerCase();
+    card.innerHTML = `<div class="f-top"><div class="f-label">${sc.title}</div>
+      <div class="f-ctrl"><span class="drop-cur">đang: <b>x${sc.mult}</b></span>
+        <input class="drop-inp" type="number" min="0.1" max="50" step="0.5" value="${sc.mult}">
+        <button class="btn sm primary drop-apply">Áp dụng</button></div></div>
+      <div class="f-desc">Gồm ${sc.files} file bảng rơi đồ. Nhập hệ số rồi bấm Áp dụng (0.5 = rơi ít nửa, 2 = gấp đôi, 1 = trả về gốc).</div>`;
+    card.querySelector(".drop-apply").onclick = async () => {
+      const mult = parseFloat(card.querySelector(".drop-inp").value);
+      if (isNaN(mult)) { toast("Hệ số không hợp lệ", "err"); return; }
+      if (!confirm(`Đặt rơi đồ "${sc.title}" thành x${mult}? (tự backup từng file, khôi phục được ở tab Backup)`)) return;
+      const res = await api("/api/droprate", jbody({ scope: sc.id, mult }));
+      if (res.ok) { toast(`✅ Đã đặt x${mult} — sửa ${res.changed.length} file. Restart server để áp dụng.`, "ok"); card.querySelector(".drop-cur").innerHTML = `đang: <b>x${mult}</b>`; }
+      else toast(res.error, "err");
+    };
+    grid.appendChild(card);
+  });
+}
+async function loadAdvanced() {
+  const r = await api("/api/scan");
+  const body = $("advancedBody"); body.innerHTML = "";
+  if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  if (!r.groups.length) { body.innerHTML = `<div class="empty">Không tìm thấy hằng số global nào khác.</div>`; return; }
+  r.groups.forEach((g) => renderGroup(body, "📄 " + g.file, "", g.fields, g.path.replace(settings.simcity_path, "…")));
+  applySearch();
+}
+/* ---------- data lists ---------- */
+async function loadLists() {
+  const cat = await api("/api/lists");
+  const body = $("listsBody"); body.innerHTML = "";
+  if (!cat.ok) { body.innerHTML = `<div class="empty">${cat.error}</div>`; return; }
+  for (const meta of cat.lists) {
+    const data = await api("/api/list?id=" + meta.id + "&encoding=" + $("encoding").value);
+    const card = document.createElement("div"); card.className = "list-card"; card.dataset.id = meta.id;
+    const items = data.ok ? data.items : [];
+    card.innerHTML = `<div class="list-head">
+      <div><div class="list-title">${meta.title}</div><div class="list-desc">${meta.desc}</div></div>
+      <span class="list-count">${items.length} dòng</span>
+      <div class="list-actions">
+        <button class="btn sm add">➕ Thêm dòng</button>
+        <button class="btn primary sm save">💾 Lưu danh sách</button>
+      </div></div>
+      <div class="list-rows"></div>`;
+    const rows = card.querySelector(".list-rows");
+    if (!data.ok) rows.innerHTML = `<div class="empty">${data.error}</div>`;
+    items.forEach((v) => rows.appendChild(makeListRow(v)));
+    card.querySelector(".add").onclick = () => { const r = makeListRow(""); rows.appendChild(r); r.querySelector("input").focus(); r.classList.add("dirty"); refreshIdx(rows); };
+    card.querySelector(".save").onclick = () => saveList(meta.id, rows, card);
+    body.appendChild(card); refreshIdx(rows);
+  }
+}
+function makeListRow(val) {
+  const row = document.createElement("div"); row.className = "list-row";
+  const idx = document.createElement("span"); idx.className = "idx";
+  const inp = document.createElement("input"); inp.value = val; inp.oninput = () => row.classList.add("dirty");
+  const del = document.createElement("button"); del.className = "del"; del.textContent = "🗑"; del.title = "Xoá dòng";
+  del.onclick = () => { const rows = row.parentElement; row.remove(); refreshIdx(rows); };
+  row.appendChild(idx); row.appendChild(inp); row.appendChild(del);
+  return row;
+}
+function refreshIdx(rows) { [...rows.querySelectorAll(".list-row")].forEach((r, i) => r.querySelector(".idx").textContent = (i + 1)); }
+async function saveList(id, rows, card) {
+  const items = [...rows.querySelectorAll(".list-row input")].map((i) => i.value).filter((v) => v.trim() !== "");
+  if (!confirm(`Lưu danh sách "${id}" (${items.length} dòng) vào server?`)) return;
+  const r = await api("/api/list", jbody({ id, items, encoding: $("encoding").value }));
+  if (r.ok) { toast(`Đã lưu ${r.count} dòng (backup .bak)`, "ok"); card.querySelector(".list-count").textContent = r.count + " dòng"; rows.querySelectorAll(".list-row").forEach((x) => x.classList.remove("dirty")); }
+  else toast(r.error, "err");
+}
+
+async function loadAll() { await loadPanel(); await loadServerCfg(); await loadAdvanced(); await loadLists(); }
+
+async function saveAll() {
+  if (!changes.size) { toast("Không có thay đổi", ""); return; }
+  const list = Array.from(changes.values());
+  if (!confirm(`Lưu ${list.length} thay đổi vào server?`)) return;
+  const r = await api("/api/save", jbody({ encoding: $("encoding").value, changes: list }));
+  if (r.ok) { toast(`Đã lưu ${r.total} thay đổi (đã backup .bak)`, "ok"); loadAll(); }
+  else toast(r.error, "err");
+}
+
+/* ---------- guide (mini markdown) ---------- */
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function inlineMd(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+function renderMarkdown(md) {
+  const lines = md.split("\n"); let html = ""; let i = 0;
+  while (i < lines.length) {
+    let ln = lines[i];
+    if (ln.startsWith("```")) { let code = ""; i++; while (i < lines.length && !lines[i].startsWith("```")) { code += esc(lines[i]) + "\n"; i++; } i++; html += `<pre><code>${code}</code></pre>`; continue; }
+    if (ln.startsWith("### ")) { html += `<h3>${inlineMd(ln.slice(4))}</h3>`; i++; continue; }
+    if (ln.startsWith("## ")) { html += `<h2>${inlineMd(ln.slice(3))}</h2>`; i++; continue; }
+    if (ln.startsWith("# ")) { html += `<h1>${inlineMd(ln.slice(2))}</h1>`; i++; continue; }
+    if (ln.startsWith("> ")) { html += `<blockquote>${inlineMd(ln.slice(2))}</blockquote>`; i++; continue; }
+    if (ln.trim().startsWith("|")) { // table
+      const rows = []; while (i < lines.length && lines[i].trim().startsWith("|")) { rows.push(lines[i]); i++; }
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      let t = "<table>"; rows.forEach((r, ri) => {
+        if (/^[\s|:-]+$/.test(r)) return;
+        const tag = ri === 0 ? "th" : "td";
+        t += "<tr>" + cells(r).map((c) => `<${tag}>${inlineMd(c)}</${tag}>`).join("") + "</tr>";
+      }); t += "</table>"; html += t; continue;
+    }
+    if (/^\s*[-*] /.test(ln)) { html += "<ul>"; while (i < lines.length && /^\s*[-*] /.test(lines[i])) { html += `<li>${inlineMd(lines[i].replace(/^\s*[-*] /, ""))}</li>`; i++; } html += "</ul>"; continue; }
+    if (/^\s*\d+\. /.test(ln)) { html += "<ol>"; while (i < lines.length && /^\s*\d+\. /.test(lines[i])) { html += `<li>${inlineMd(lines[i].replace(/^\s*\d+\. /, ""))}</li>`; i++; } html += "</ol>"; continue; }
+    if (ln.trim() === "") { i++; continue; }
+    html += `<p>${inlineMd(ln)}</p>`; i++;
+  }
+  return html;
+}
+async function loadGuide() {
+  const r = await api("/api/guide");
+  $("guideBody").innerHTML = r.ok ? renderMarkdown(r.md) : `<div class="empty">${r.error}</div>`;
+}
+
+/* ---------- backups ---------- */
+async function loadBackups() {
+  const body = $("backupsBody"); body.innerHTML = `<div class="empty">Đang tải lịch sử backup...</div>`;
+  const r = await api("/api/backups");
+  if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  if (!r.backups.length) { body.innerHTML = `<div class="empty">Chưa có bản backup nào — sẽ tự xuất hiện sau lần Lưu đầu tiên.</div>`; return; }
+  body.innerHTML = "";
+  r.backups.forEach((b) => {
+    const row = document.createElement("div"); row.className = "bk-row";
+    const file = b.path.split("/").pop();
+    row.innerHTML = `<div class="bk-time">${b.ts}</div>
+      <div class="bk-main"><div class="bk-desc"></div><div class="bk-file">📄 ${file} <span class="bk-path">${b.path}</span></div></div>
+      <button class="btn sm bk-restore">↩ Khôi phục</button>`;
+    row.querySelector(".bk-desc").textContent = b.desc || "(không có mô tả)";
+    row.querySelector(".bk-restore").onclick = async () => {
+      if (!confirm(`Khôi phục "${file}" về bản lúc ${b.ts}?\n(${b.desc})\n\nBản hiện tại sẽ được tự chụp lại trước, không mất gì. Khôi phục xong cần Restart server.`)) return;
+      const res = await api("/api/restore", jbody({ id: b.id }));
+      if (res.ok) { toast(`✅ Đã khôi phục ${file} về bản ${b.ts} — bấm Restart server để áp dụng.`, "ok"); loadBackups(); }
+      else toast(res.error, "err");
+    };
+    body.appendChild(row);
+  });
+}
+
+/* ---------- search ---------- */
+function applySearch() {
+  const q = $("search").value.trim().toLowerCase();
+  document.body.classList.toggle("searching", !!q); // đang tìm: tạm bung mọi cụm đã gập
+  document.querySelectorAll(".field").forEach((el) => el.classList.toggle("hide", q && !el.dataset.search.includes(q)));
+  // ẩn luôn cụm không có kết quả nào khi đang tìm
+  document.querySelectorAll(".group").forEach((g) => {
+    const any = g.querySelector(".field:not(.hide)");
+    g.classList.toggle("hide", !!q && !any);
+  });
+}
+
+/* ---------- raw editor ---------- */
+async function openDir(path) {
+  const r = await api("/api/tree" + (path ? "?path=" + encodeURIComponent(path) : ""));
+  if (!r.ok) { toast(r.error, "err"); return; }
+  setConn("on", "Đã kết nối"); curDir = r.path; $("curPath").textContent = r.path;
+  const ul = $("treeList"); ul.innerHTML = "";
+  r.entries.forEach((e) => { const li = document.createElement("li"); li.className = e.is_dir ? "is-dir" : "is-file";
+    li.innerHTML = `<span>${e.is_dir ? "📁" : "📄"} ${e.name}</span>`; li.onclick = () => e.is_dir ? openDir(e.path) : openFile(e.path); ul.appendChild(li); });
+}
+const parentDir = (p) => { const i = p.replace(/\/+$/, "").lastIndexOf("/"); return i > 0 ? p.slice(0, i) : p; };
+let openFileViet = false; // file đang mở có được chuyển TCVN3->Unicode không
+async function openFile(path) {
+  const viet = $("chkViet").checked ? "1" : "0";
+  const r = await api("/api/file?path=" + encodeURIComponent(path) + "&encoding=" + $("encoding").value + "&viet=" + viet);
+  if (!r.ok) { toast(r.error, "err"); return; }
+  openFilePath = path; openFileViet = !!r.viet;
+  $("openPath").textContent = path; $("code").value = r.content; $("btnSaveFile").disabled = false;
+}
+async function saveFile() {
+  if (!openFilePath) return;
+  const r = await api("/api/file", jbody({ path: openFilePath, content: $("code").value, encoding: $("encoding").value, viet: openFileViet }));
+  toast(r.ok ? "Đã lưu (backup .bak)" : r.error, r.ok ? "ok" : "err");
+}
+
+/* ---------- tabs ---------- */
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
+  const showTool = ["panel", "server", "advanced", "lists"].includes(name);
+  document.querySelector(".toolbar").style.display = showTool ? "flex" : "none";
+  if (name === "editor" && !curDir) openDir(settings.simcity_path);
+  if (name === "backups") loadBackups();
+  if (name === "guide" && !$("guideBody").dataset.loaded) { $("guideBody").dataset.loaded = "1"; loadGuide(); }
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  await loadSettings();
+  $("btnSettings").onclick = () => $("settingsModal").classList.remove("hidden");
+  $("btnCloseSettings").onclick = () => $("settingsModal").classList.add("hidden");
+  $("btnSaveSettings").onclick = saveSettings;
+  $("btnDetect").onclick = detectServer;
+  $("btnImport").onclick = importClientConfig;
+  $("btnTest").onclick = testConn;
+  $("btnReload").onclick = reloadServer;
+  $("btnLoad").onclick = loadAll;
+  $("btnSave").onclick = saveAll;
+  $("search").oninput = applySearch;
+  $("btnUp").onclick = () => openDir(parentDir(curDir));
+  $("btnHome").onclick = () => openDir(settings.simcity_path);
+  $("btnSaveFile").onclick = saveFile;
+  $("chkViet").onchange = () => { if (openFilePath) openFile(openFilePath); }; // nạp lại file theo chế độ hiển thị mới
+  document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => switchTab(t.dataset.tab)));
+  $("code").addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveFile(); } });
+  window.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s" && !$("tab-editor").classList.contains("active")) { e.preventDefault(); saveAll(); } });
+
+  // Chạy lần đầu (chưa có IP máy chủ): mở cài đặt và tự dò giúp người dùng.
+  if (!settings.host) {
+    $("settingsModal").classList.remove("hidden");
+    setConn("off", "Chưa cài đặt");
+    $("settingsMsg").textContent = "Chào mừng! Bấm 🔍 Tự dò server để app tìm máy chủ game giúp bạn.";
+    detectServer();
+    return;
+  }
+  loadAll();
+});

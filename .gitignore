@@ -1,0 +1,16 @@
+# Cấu hình riêng của từng máy — CHỨA MẬT KHẨU VM, KHÔNG BAO GIỜ đẩy lên GitHub
+settings.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Hệ điều hành / trình soạn thảo
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

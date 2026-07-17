@@ -1,0 +1,51 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Preview — Danh sách & Hướng dẫn</title>
+<style>
+:root{--bg:#0b1020;--bg2:#0f1626;--card:#141d31;--card2:#182338;--line:#243149;--line2:#2f3f5e;--txt:#e8edf7;--muted:#93a1bf;--dim:#6b7a99;--accent:#5b8cff;--accent2:#3b6fe0;--good:#22c55e;--warn:#f59e0b}
+*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#16223c,transparent 60%),var(--bg);color:var(--txt)}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:linear-gradient(90deg,#111a2e,#0f1626);border-bottom:1px solid var(--line)}
+.brand{display:flex;gap:12px;align-items:center}.logo{font-size:26px}.brand-title{font-weight:700}.brand-sub{font-size:12px;color:var(--muted)}
+.conn{display:flex;gap:8px;align-items:center;font-size:13px}.dot{width:10px;height:10px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+.btn{background:var(--card2);color:var(--txt);border:1px solid var(--line2);padding:7px 13px;border-radius:9px;font-size:13px}
+.btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent2));border-color:var(--accent2);color:#fff}
+.btn.sm{padding:5px 10px;font-size:12px}
+.tabs{display:flex;gap:6px;padding:10px 20px 0;background:#0f1626;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{background:transparent;border:1px solid transparent;color:var(--muted);padding:9px 14px;border-radius:10px 10px 0 0;font-size:13px;font-weight:600}
+.tab.active{background:var(--bg);border-color:var(--line);color:var(--accent)}
+.content{padding:18px 20px 40px;max-width:1000px}
+.hint{background:#0f1a2e;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:var(--muted)}
+.hint b{color:#cfe0ff}
+.list-card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.list-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.list-title{font-weight:700;color:#e9f0ff}.list-desc{font-size:12px;color:var(--muted)}
+.list-count{font-size:11px;color:var(--dim);background:#0b1223;padding:2px 8px;border-radius:6px}
+.list-actions{margin-left:auto;display:flex;gap:8px}
+.list-rows{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto}
+.list-row{display:flex;align-items:center;gap:8px}
+.list-row .idx{font-size:11px;color:var(--dim);width:24px;text-align:right}
+.list-row input{flex:1;background:#0b1223;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;color:var(--txt);font-size:13px;font-family:Consolas,monospace}
+.list-row.dirty input{border-color:var(--warn)}
+.list-row .del{background:#3a1620;border:1px solid #7f2233;color:#ffb3bd;border-radius:8px;width:34px;height:34px;font-size:15px}
+.note{margin:14px 0;padding:10px 14px;background:#0b1a0f;border:1px solid #1f5132;border-radius:10px;color:#a7f3d0;font-size:12px}
+</style></head><body>
+<div class="topbar"><div class="brand"><div class="logo">🎮</div><div><div class="brand-title">SimCity Control Panel</div><div class="brand-sub">Chỉnh mọi thông số bot — lưu thẳng vào server</div></div></div>
+<div class="conn"><span class="dot"></span>Đã kết nối</div></div>
+<div class="tabs"><div class="tab">🎛️ Bảng điều khiển</div><div class="tab">🧩 Nâng cao</div><div class="tab active">📜 Danh sách dữ liệu</div><div class="tab">📝 Sửa file thô</div><div class="tab">❓ Hướng dẫn sửa hành vi</div></div>
+<div class="content">
+<div class="note">✅ Mới thêm: tab <b>Danh sách dữ liệu</b> (sửa câu chat, tên bang) + tab <b>Hướng dẫn sửa hành vi</b> (bày cách sửa logic code an toàn).</div>
+<div class="hint">Sửa <b>danh sách chuỗi</b> của bot. Thêm/xoá/sửa dòng rồi <b>Lưu danh sách</b>. Giữ nguyên mã chữ cũ (TCVN3) — chữ Việt mới nên gõ Unikey kiểu TCVN3 hoặc sao chép dòng có sẵn. Nhớ Restart server để áp dụng.</div>
+
+<div class="list-card"><div class="list-head"><div><div class="list-title">💬 Câu chat thường của bot</div><div class="list-desc">Các câu bot nói ngẫu nhiên khi đi lại.</div></div><span class="list-count">54 dòng</span><div class="list-actions"><button class="btn sm">➕ Thêm dòng</button><button class="btn primary sm">💾 Lưu danh sách</button></div></div>
+<div class="list-rows">
+ <div class="list-row"><span class="idx">1</span><input value="Chµ, ®«ng qu¸ nhØ!"><button class="del">🗑</button></div>
+ <div class="list-row dirty"><span class="idx">2</span><input value="Hôm nay farm được nhiều đồ ghê!"><button class="del">🗑</button></div>
+ <div class="list-row"><span class="idx">3</span><input value="Qu¸n ch¸o lßng ngon qu¸ :)"><button class="del">🗑</button></div>
+ <div class="list-row"><span class="idx">4</span><input value="Th»ng nµo ®¸nh lÐn tao :@"><button class="del">🗑</button></div>
+</div></div>
+
+<div class="list-card"><div class="list-head"><div><div class="list-title">🏳️ Tên bang hội của bot</div><div class="list-desc">Pool tên bang gắn trước tên bot.</div></div><span class="list-count">10 dòng</span><div class="list-actions"><button class="btn sm">➕ Thêm dòng</button><button class="btn primary sm">💾 Lưu danh sách</button></div></div>
+<div class="list-rows">
+ <div class="list-row"><span class="idx">1</span><input value="AnhEm"><button class="del">🗑</button></div>
+ <div class="list-row"><span class="idx">2</span><input value="ThichPK"><button class="del">🗑</button></div>
+ <div class="list-row"><span class="idx">3</span><input value="PhaThien"><button class="del">🗑</button></div>
+</div></div>
+</div></body></html>
