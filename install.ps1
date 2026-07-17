@@ -91,7 +91,8 @@ Say "Da cai vao: $Dest" 'Green'
 
 # ---------- 3. Cai thu vien Python can thiet ----------
 Say "Dang cai thu vien (Flask, paramiko)..."
-& $Py -m pip install --quiet --upgrade pip 2>$null | Out-Null
+# Day qua cmd de stderr cua pip (vd. WARNING ~ip) khong bi PS 5.1 boc thanh loi chet script
+cmd /c "`"$Py`" -m pip install --quiet --upgrade pip >nul 2>nul"
 & $Py -m pip install --quiet -r (Join-Path $Dest 'requirements.txt')
 if ($LASTEXITCODE -ne 0) { Say "Cai thu vien that bai. Xem thong bao loi ben tren." 'Red'; return }
 Say "Xong thu vien." 'Green'
