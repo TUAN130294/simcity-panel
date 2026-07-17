@@ -162,6 +162,18 @@ GROUPS = [
         {"key": "SIMBOT_HP_CAP3_MAX", "label": "Máu bot trâu (cấp 3) — nhiều nhất", "widget": "number", "unit": "HP", "min": 100, "max": 5000000, "step": 1000,
          "desc": "Phải ≥ ô 'ít nhất'."},
     ]},
+    {"title": "💐 Tiểu Thiếp (xin tiền / thuốc / TDP)", "note": "Người chơi bấm chuyện trò với Tiểu Thiếp có thể xin tiền, xin thuốc, xin TDP — chỉnh độ hào phóng ở đây.", "fields": [
+        {"key": "TIEUTHIEP_CHO_TIEN_PCT", "label": "% đồng ý cho tiền", "widget": "number", "unit": "%", "min": 0, "max": 100, "step": 5,
+         "desc": "Xin tiền thì bấy nhiêu % lần nàng chịu rút hầu bao (còn lại từ chối khéo). Mặc định 10. Đặt 0 = không bao giờ cho."},
+        {"key": "TIEUTHIEP_TIEN_MIN", "label": "Tiền cho — ít nhất", "widget": "number", "unit": "vạn", "min": 0, "max": 10000, "step": 1,
+         "desc": "Khi chịu cho, số tiền ngẫu nhiên trong khoảng ít nhất–nhiều nhất (đơn vị VẠN lượng). Mặc định 1–5 vạn."},
+        {"key": "TIEUTHIEP_TIEN_MAX", "label": "Tiền cho — nhiều nhất", "widget": "number", "unit": "vạn", "min": 0, "max": 10000, "step": 1,
+         "desc": "Phải ≥ ô 'ít nhất'. Cẩn thận đặt cao: người chơi có thể đứng xin cả ngày."},
+        {"key": "TIEUTHIEP_SO_THUOC", "label": "Số thuốc cho mỗi lần xin", "widget": "number", "unit": "viên", "min": 0, "max": 500, "step": 5,
+         "desc": "Xin thuốc là rơi ra bấy nhiêu viên. Mặc định 25. Đặt 0 = tắt."},
+        {"key": "TIEUTHIEP_SO_TDP", "label": "Số TDP cho mỗi lần xin", "widget": "number", "unit": "cái", "min": 0, "max": 100, "step": 1,
+         "desc": "Xin TDP là rơi ra bấy nhiêu cái. Mặc định 3. Đặt 0 = tắt."},
+    ]},
     {"title": "🔧 Hệ thống (chỉnh cẩn thận)", "note": "Ảnh hưởng hiệu năng/định danh nội bộ — không nên đổi nếu chưa hiểu.", "fields": [
         {"key": "REFRESH_RATE", "label": "Nhịp suy nghĩ của bot", "widget": "number", "unit": "", "min": 1, "max": 200, "step": 1,
          "desc": "Bao lâu bot 'suy nghĩ' một lần. Số NHỎ = bot phản ứng nhanh, mượt hơn nhưng máy chủ nặng hơn. Mặc định 18."},

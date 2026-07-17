@@ -284,39 +284,69 @@ async function loadLists() {
   const cat = await api("/api/lists");
   const body = $("listsBody"); body.innerHTML = "";
   if (!cat.ok) { body.innerHTML = `<div class="empty">${cat.error}</div>`; return; }
-  for (const meta of cat.lists) {
-    const data = await api("/api/list?id=" + meta.id + "&encoding=" + $("encoding").value);
-    const card = document.createElement("div"); card.className = "list-card"; card.dataset.id = meta.id;
-    const items = data.ok ? data.items : [];
-    card.innerHTML = `<div class="list-head">
-      <div><div class="list-title">${meta.title}</div><div class="list-desc">${meta.desc}</div></div>
-      <span class="list-count">${items.length} dòng</span>
-      <div class="list-actions">
-        <button class="btn sm add">➕ Thêm dòng</button>
-        <button class="btn primary sm save">💾 Lưu danh sách</button>
-      </div></div>
-      <div class="list-rows"></div>`;
-    const rows = card.querySelector(".list-rows");
-    if (!data.ok) rows.innerHTML = `<div class="empty">${data.error}</div>`;
-    items.forEach((v) => rows.appendChild(makeListRow(v)));
-    card.querySelector(".add").onclick = () => { const r = makeListRow(""); rows.appendChild(r); r.querySelector("input").focus(); r.classList.add("dirty"); refreshIdx(rows); };
-    card.querySelector(".save").onclick = () => saveList(meta.id, rows, card);
-    body.appendChild(card); refreshIdx(rows);
+  // tải song song từng tốp 3 (nhanh hơn tuần tự, không dồn quá nhiều kết nối SSH)
+  const metas = cat.lists, datas = [];
+  for (let i = 0; i < metas.length; i += 3) {
+    const rs = await Promise.all(metas.slice(i, i + 3).map((m) =>
+      api("/api/list?id=" + m.id + "&encoding=" + $("encoding").value)));
+    datas.push(...rs);
   }
+  metas.forEach((meta, i) => body.appendChild(makeListCard(meta, datas[i])));
 }
-function makeListRow(val) {
+function makeListCard(meta, data) {
+  const card = document.createElement("div"); card.className = "list-card"; card.dataset.id = meta.id;
+  const items = data.ok ? data.items : [];
+  const types = data.types || null;   // null = danh sách 1 cột kiểu cũ
+  card.innerHTML = `<div class="list-head">
+    <div><div class="list-title">${meta.title}</div><div class="list-desc">${meta.desc}</div></div>
+    <span class="list-count">${items.length} dòng</span>
+    <div class="list-actions">
+      <button class="btn sm add">➕ Thêm dòng</button>
+      <button class="btn primary sm save">💾 Lưu danh sách</button>
+    </div></div>
+    <div class="list-rows"></div>`;
+  const rows = card.querySelector(".list-rows");
+  if (!data.ok) rows.innerHTML = `<div class="empty">${data.error}</div>`;
+  if (data.cols && data.cols.length > 1) {   // bảng nhiều cột: vẽ hàng tiêu đề cột
+    const head = document.createElement("div"); head.className = "list-row cols-head";
+    head.innerHTML = `<span class="idx"></span>` +
+      data.cols.map((c, j) => `<span class="col-label${types[j] === "number" ? " num-col" : ""}">${c}</span>`).join("") +
+      `<span class="del-ph"></span>`;
+    rows.appendChild(head);
+  }
+  items.forEach((v) => rows.appendChild(makeListRow(v, types)));
+  card.querySelector(".add").onclick = () => {
+    const blank = types && types.length > 1 ? Array(types.length).fill("") : "";
+    const r = makeListRow(blank, types);
+    rows.appendChild(r); r.querySelector("input").focus(); r.classList.add("dirty"); refreshIdx(rows);
+  };
+  card.querySelector(".save").onclick = () => saveList(meta.id, rows, card);
+  refreshIdx(rows);
+  return card;
+}
+function makeListRow(val, types) {
   const row = document.createElement("div"); row.className = "list-row";
   const idx = document.createElement("span"); idx.className = "idx";
-  const inp = document.createElement("input"); inp.value = val; inp.oninput = () => row.classList.add("dirty");
+  row.appendChild(idx);
+  const vals = Array.isArray(val) ? val : [val];
+  vals.forEach((v, j) => {
+    const inp = document.createElement("input"); inp.value = v;
+    if (types && types[j] === "number") inp.classList.add("num-col");
+    inp.oninput = () => row.classList.add("dirty");
+    row.appendChild(inp);
+  });
   const del = document.createElement("button"); del.className = "del"; del.textContent = "🗑"; del.title = "Xoá dòng";
   del.onclick = () => { const rows = row.parentElement; row.remove(); refreshIdx(rows); };
-  row.appendChild(idx); row.appendChild(inp); row.appendChild(del);
+  row.appendChild(del);
   return row;
 }
-function refreshIdx(rows) { [...rows.querySelectorAll(".list-row")].forEach((r, i) => r.querySelector(".idx").textContent = (i + 1)); }
+function refreshIdx(rows) { [...rows.querySelectorAll(".list-row:not(.cols-head)")].forEach((r, i) => r.querySelector(".idx").textContent = (i + 1)); }
 async function saveList(id, rows, card) {
-  const items = [...rows.querySelectorAll(".list-row input")].map((i) => i.value).filter((v) => v.trim() !== "");
-  if (!confirm(`Lưu danh sách "${id}" (${items.length} dòng) vào server?`)) return;
+  const items = [...rows.querySelectorAll(".list-row:not(.cols-head)")].map((r) => {
+    const vals = [...r.querySelectorAll("input")].map((i) => i.value);
+    return vals.length > 1 ? vals : vals[0];
+  }).filter((v) => Array.isArray(v) ? v.some((x) => x.trim() !== "") : (v || "").trim() !== "");
+  if (!confirm(`Lưu danh sách này (${items.length} dòng) vào server?`)) return;
   const r = await api("/api/list", jbody({ id, items, encoding: $("encoding").value }));
   if (r.ok) { toast(`Đã lưu ${r.count} dòng (backup .bak)`, "ok"); card.querySelector(".list-count").textContent = r.count + " dòng"; rows.querySelectorAll(".list-row").forEach((x) => x.classList.remove("dirty")); }
   else toast(r.error, "err");

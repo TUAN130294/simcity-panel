@@ -11,9 +11,10 @@ key trả về dạng "SECTION.Key" để không đụng key trùng tên giữa 
 import re
 
 _SECTION = re.compile(r'^\s*\[(?P<name>[^\]\r\n]+)\]')
+# Chấp nhận cả kiểu "Key = 10 ;" (auction.ini có dấu cách quanh dấu bằng)
 _ENTRY = re.compile(
     r'^(?P<key>[A-Za-z_][A-Za-z0-9_]*)'
-    r'=(?P<value>[^;\r\n]*?)'
+    r'[ \t]*=[ \t]*(?P<value>[^;\r\n]*?)'
     r'(?P<rest>[ \t]*(?:;.*)?)$'
 )
 

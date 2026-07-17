@@ -6,6 +6,7 @@ backs up each file before overwriting, and (optionally) restarts the server.
 """
 import os
 import posixpath
+import re
 import webbrowser
 from threading import Timer
 
@@ -24,6 +25,7 @@ from backend import server_config_catalog as servercat
 from backend import droprate_service
 from backend import detect_service
 from backend import power_service
+from backend import tsv_service
 
 app = Flask(__name__)
 PORT = 5666
@@ -314,10 +316,20 @@ def save_changes():
 
 @app.route("/api/lists", methods=["GET"])
 def list_catalog():
-    """Danh mục các danh sách dữ liệu sửa được (không cần VM)."""
-    return jsonify({"ok": True, "lists": [
-        {"id": c["id"], "title": c["title"], "desc": c["desc"], "rel": c["rel"]}
-        for c in list_service.CATALOG]})
+    """Danh mục các danh sách dữ liệu sửa được (không cần VM).
+
+    Gồm 2 loại: bảng trong file Lua (list_service) và file bảng TAB (tsv_service).
+    Mục có 'cols' là bảng nhiều cột — giao diện vẽ theo cột.
+    """
+    lua_lists = [{"id": c["id"], "title": c["title"], "desc": c["desc"],
+                  "rel": c.get("rel") or c.get("abs")}
+                 for c in list_service.CATALOG]
+    tsv_lists = [{"id": c["id"], "title": c["title"], "desc": c["desc"],
+                  "rel": c["abs"],
+                  "cols": [cl["label"] for cl in c["cols"]],
+                  "types": [cl["type"] for cl in c["cols"]]}
+                 for c in tsv_service.CATALOG]
+    return jsonify({"ok": True, "lists": lua_lists + tsv_lists})
 
 
 @app.route("/api/list", methods=["GET"])
@@ -325,17 +337,36 @@ def get_list():
     svc, s = _svc()
     lid = request.args.get("id")
     enc = request.args.get("encoding") or s["encoding"]
+    tmeta = tsv_service.BY_ID.get(lid)
+    if tmeta:
+        try:
+            text = svc.read_file(tmeta["abs"], enc)
+            rows = tsv_service.extract(text, tmeta)
+            types = [c["type"] for c in tmeta["cols"]]
+            # cột chữ: TCVN3 -> Unicode để hiển thị; cột số giữ nguyên
+            rows = [[tcvn3_codec.tcvn3_to_unicode(v) if types[j] == "text" else v
+                     for j, v in enumerate(r)] for r in rows]
+            items = rows if len(types) > 1 else [r[0] for r in rows]
+            return jsonify({"ok": True, "id": lid, "title": tmeta["title"], "desc": tmeta["desc"],
+                            "path": tmeta["abs"], "items": items,
+                            "cols": [c["label"] for c in tmeta["cols"]], "types": types})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
     meta = list_service.BY_ID.get(lid)
     if not meta:
         return jsonify({"ok": False, "error": "Không rõ danh sách: " + str(lid)}), 400
-    path = posixpath.join(s["simcity_path"], meta["rel"])
+    path = meta.get("abs") or posixpath.join(s["simcity_path"], meta["rel"])
     try:
         text = svc.read_file(path, enc)
-        res = list_service.extract(text, meta["marker"])
-        if res is None:
+        if meta.get("kind") == "number":
+            res = list_service.extract_numbers(text, meta["marker"])
+            items = res["items"] if res else None
+        else:
+            res = list_service.extract(text, meta["marker"])
+            # Hiển thị tiếng Việt chuẩn trên web (file gốc lưu TCVN3)
+            items = [tcvn3_codec.tcvn3_to_unicode(it) for it in res["items"]] if res else None
+        if items is None:
             return jsonify({"ok": False, "error": "Không tìm thấy bảng trong file"}), 400
-        # Hiển thị tiếng Việt chuẩn trên web (file gốc lưu TCVN3)
-        items = [tcvn3_codec.tcvn3_to_unicode(it) for it in res["items"]]
         return jsonify({"ok": True, "id": lid, "title": meta["title"], "desc": meta["desc"],
                         "path": path, "items": items})
     except Exception as e:
@@ -349,15 +380,60 @@ def save_list():
     lid = body.get("id")
     enc = body.get("encoding") or s["encoding"]
     items = body.get("items")
+    tmeta = tsv_service.BY_ID.get(lid)
+    if tmeta:
+        if not isinstance(items, list):
+            return jsonify({"ok": False, "error": "Dữ liệu không hợp lệ"}), 400
+        types = [c["type"] for c in tmeta["cols"]]
+        rows, bad = [], []
+        for it in items:
+            row = [str(v) for v in it] if isinstance(it, list) else [str(it)]
+            while len(row) < len(types):
+                row.append("")
+            row = row[:len(types)]
+            if all(v.strip() == "" for v in row):
+                continue                        # bỏ dòng trống
+            for j, v in enumerate(row):
+                v = v.replace("\t", " ").replace("\n", " ").strip()
+                if types[j] == "number":
+                    if not re.fullmatch(r"-?\d+", v):
+                        bad.append(v or "(trống)")
+                else:
+                    v = tcvn3_codec.unicode_to_tcvn3(v)
+                row[j] = v
+            rows.append(row)
+        if bad:
+            return jsonify({"ok": False, "error": "Cột số chỉ được nhập SỐ. Sai: " + ", ".join(bad[:5])}), 400
+        if not rows:
+            return jsonify({"ok": False, "error": "Danh sách này không được để trống"}), 400
+        try:
+            text = svc.read_file(tmeta["abs"], enc)
+            new_text = tsv_service.rebuild(text, tmeta, rows)
+            backup_service.snapshot(svc, tmeta["abs"], f"Sửa danh sách: {tmeta['title']} ({len(rows)} dòng)")
+            svc.write_file(tmeta["abs"], new_text, enc, make_backup=True)
+            return jsonify({"ok": True, "count": len(rows), "backup": tmeta["abs"] + ".bak"})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
     meta = list_service.BY_ID.get(lid)
     if not meta or not isinstance(items, list):
         return jsonify({"ok": False, "error": "Dữ liệu không hợp lệ"}), 400
-    path = posixpath.join(s["simcity_path"], meta["rel"])
-    # Người dùng gõ Unicode trên web -> chuyển về TCVN3 để game đọc đúng
-    items = [tcvn3_codec.unicode_to_tcvn3(it) for it in items]
+    path = meta.get("abs") or posixpath.join(s["simcity_path"], meta["rel"])
+    if meta.get("kind") == "number":
+        items = [str(it).strip() for it in items if str(it).strip()]
+        bad = [it for it in items if not re.fullmatch(r"\d{1,6}", it)]
+        if bad:
+            return jsonify({"ok": False, "error": "Chỉ được nhập SỐ (vd 0100, 2300). Sai: " + ", ".join(bad[:5])}), 400
+        if not items:
+            return jsonify({"ok": False, "error": "Danh sách này không được để trống"}), 400
+    else:
+        # Người dùng gõ Unicode trên web -> chuyển về TCVN3 để game đọc đúng
+        items = [tcvn3_codec.unicode_to_tcvn3(it) for it in items]
     try:
         text = svc.read_file(path, enc)
-        new_text = list_service.rebuild(text, meta["marker"], items)
+        if meta.get("kind") == "number":
+            new_text = list_service.rebuild_numbers(text, meta["marker"], items)
+        else:
+            new_text = list_service.rebuild(text, meta["marker"], items)
         if new_text is None:
             return jsonify({"ok": False, "error": "Không tìm thấy bảng để ghi"}), 400
         backup_service.snapshot(svc, path, f"Sửa danh sách: {meta['title']} ({len(items)} dòng)")

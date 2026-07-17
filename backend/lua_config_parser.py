@@ -12,11 +12,11 @@ comments and every other byte are preserved.
 """
 import re
 
-# indent, name, value(number|"str"|'str'), trailing(comment)
+# indent, name, value(number|"str"|'str'), trailing(dấu phẩy/chấm phẩy + comment)
 _ASSIGN = re.compile(
     r'^(?P<indent>[ \t]*)(?P<name>[A-Za-z_][A-Za-z0-9_]*)'
     r'[ \t]*=[ \t]*(?P<value>-?\d+\.?\d*|"[^"\n]*"|\'[^\'\n]*\')'
-    r'(?P<rest>[ \t]*,?[ \t]*(?:--.*)?)$'
+    r'(?P<rest>[ \t]*[,;]?[ \t]*(?:--.*)?)$'
 )
 _TABLE_OPEN = re.compile(r'^[ \t]*(?P<name>[A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*\{[ \t]*(?:--.*)?$')
 _TABLE_CLOSE = re.compile(r'^[ \t]*\}[ \t]*,?[ \t]*(?:--.*)?$')

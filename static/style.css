@@ -1186,3 +1186,10 @@ body.searching .group.collapsed .grid{display:grid}     /* đảm bảo bung c�
   .field.changed .f-top{padding-right:0}
   .field.changed::after{position:static;order:-1;align-self:flex-end;transform:rotate(0)}
 }
+/* ---------- bảng nhiều cột trong Danh sách dữ liệu ---------- */
+.list-row input.num-col{flex:0 0 96px;text-align:center;font-variant-numeric:tabular-nums}
+.list-row.cols-head{padding:2px 0;border-bottom:1px dashed var(--gold-3,#7a5a1e);margin-bottom:4px}
+.list-row.cols-head .idx{width:26px}
+.col-label{flex:1;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-soft,#6d5630);text-transform:uppercase;padding:0 4px}
+.col-label.num-col{flex:0 0 96px;text-align:center}
+.del-ph{width:34px;flex:none}
