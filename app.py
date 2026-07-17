@@ -21,6 +21,7 @@ from backend import list_service
 from backend import tcvn3_codec
 from backend import backup_service
 from backend import ini_config_parser as iniparse
+from backend import seasonal_event_service
 from backend import server_config_catalog as servercat
 from backend import droprate_service
 from backend import detect_service
@@ -195,7 +196,8 @@ def get_config():
             groups.append({"title": g["title"], "note": g.get("note", ""), "fields": fields})
 
         extras = [{"key": c["key"], "name": c["name"], "label": c["name"],
-                   "desc": c["comment"] or "Chưa gắn nhãn.", "value": c["value"],
+                   # comment trong file có thể là TCVN3 -> chuyển sang Unicode đọc được
+                   "desc": tcvn3_codec.tcvn3_to_unicode(c["comment"]) or "Chưa gắn nhãn.", "value": c["value"],
                    "type": c["type"], "line": c["line"], "path": path,
                    "widget": "text" if c["type"] == "string" else "number"}
                   for c in parsed if c["key"] not in catalog.LOOKUP and c["parent"] is None]
@@ -263,6 +265,40 @@ def set_droprate():
     try:
         svc, _ = _svc()
         res = droprate_service.apply(svc, body.get("scope"), body.get("mult"))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/seasonal-events", methods=["GET"])
+def get_seasonal_events():
+    """Event theo mùa (activitysys 2010–2012): trạng thái + thông số từng event."""
+    try:
+        svc, _ = _svc()
+        return jsonify({"ok": True, "events": seasonal_event_service.status(svc)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/seasonal-events/toggle", methods=["POST"])
+def toggle_seasonal_event():
+    """Bật/tắt 1 event mùa: body {key, enable}. Bật kèm vá hạn dùng item cũ."""
+    body = request.get_json(force=True) or {}
+    try:
+        svc, _ = _svc()
+        res = seasonal_event_service.toggle(svc, body.get("key"), bool(body.get("enable")))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/seasonal-events/knob", methods=["POST"])
+def set_seasonal_event_knob():
+    """Đổi 1 thông số event mùa: body {key, knob, value}."""
+    body = request.get_json(force=True) or {}
+    try:
+        svc, _ = _svc()
+        res = seasonal_event_service.set_knob(svc, body.get("key"), body.get("knob"), body.get("value"))
         return jsonify({"ok": True, **res})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400

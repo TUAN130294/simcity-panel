@@ -13,8 +13,9 @@ comments and every other byte are preserved.
 import re
 
 # indent, name, value(number|"str"|'str'), trailing(dấu phẩy/chấm phẩy + comment)
+# name cho phép dấu chấm (vd `pActivity.nStartDate = ...` trong head.lua của event)
 _ASSIGN = re.compile(
-    r'^(?P<indent>[ \t]*)(?P<name>[A-Za-z_][A-Za-z0-9_]*)'
+    r'^(?P<indent>[ \t]*)(?P<name>[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)'
     r'[ \t]*=[ \t]*(?P<value>-?\d+\.?\d*|"[^"\n]*"|\'[^\'\n]*\')'
     r'(?P<rest>[ \t]*[,;]?[ \t]*(?:--.*)?)$'
 )

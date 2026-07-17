@@ -233,6 +233,7 @@ async function loadServerCfg() {
   const body = $("serverBody"); body.innerHTML = "";
   if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
   renderDroprate(body);
+  renderSeasonalEvents(body);
   r.sources.forEach((src) => {
     if (src.error) { renderGroup(body, "⚠️ " + src.title, "Không đọc được: " + src.error, []); return; }
     const tag = src.path.split("/").pop();
@@ -268,6 +269,57 @@ async function renderDroprate(container) {
       if (res.ok) { toast(`✅ Đã đặt x${mult} — sửa ${res.changed.length} file. Restart server để áp dụng.`, "ok"); card.querySelector(".drop-cur").innerHTML = `đang: <b>x${mult}</b>`; }
       else toast(res.error, "err");
     };
+    grid.appendChild(card);
+  });
+}
+/* ---- Event theo mùa (activitysys 2010–2012) ---- */
+async function renderSeasonalEvents(container) {
+  const wrap = document.createElement("div"); wrap.className = "group";
+  wrap.innerHTML = `<div class="group-head"><span class="group-title">🎪 Event theo mùa (2010–2012)</span>
+    <span class="group-note">Event trọn gói của bản gốc: bật là có đủ nguồn rơi + NPC + quà (tự vá hạn dùng vật phẩm cũ khi bật).
+    Khác với "Sự kiện cổ" ở dưới (chạy qua Túi nguyên liệu). Bật/tắt hay đổi thông số xong phải RESTART server.</span></div>
+    <div class="grid se-grid"></div>`;
+  container.appendChild(wrap);
+  const grid = wrap.querySelector(".se-grid");
+  const r = await api("/api/seasonal-events");
+  if (!r.ok) { grid.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  r.events.forEach((ev) => {
+    const card = document.createElement("div"); card.className = "field";
+    card.dataset.search = ("event mùa " + ev.name + " " + ev.desc).toLowerCase();
+    const knobRows = ev.knobs.map((k) => `
+      <div class="f-top se-knob" data-knob="${k.key}">
+        <div class="f-label">${k.label}</div>
+        <div class="f-ctrl"><input class="se-inp" type="number" min="${k.min}" max="${k.max}" step="${k.step}"
+          value="${k.value ?? ""}"><span class="unit">${k.unit}</span>
+          <button class="btn sm se-apply">Lưu</button></div>
+      </div>
+      <div class="f-desc">${k.desc}</div>`).join("");
+    card.innerHTML = `<div class="f-top">
+        <div class="f-label">${ev.name} <span class="se-state" style="font-weight:bold;color:${ev.active ? "#2e7d32" : "#8d6e63"}">${ev.active ? "ĐANG MỞ" : "ĐANG TẮT"}</span></div>
+        <div class="f-ctrl"><button class="btn sm primary se-toggle">${ev.active ? "Tắt event" : "Mở event"}</button></div>
+      </div>
+      <div class="f-desc">${ev.desc}</div>${knobRows}`;
+    let active = ev.active;
+    const stateEl = card.querySelector(".se-state"), btn = card.querySelector(".se-toggle");
+    btn.onclick = async () => {
+      const next = !active;
+      if (!confirm(`${next ? "MỞ" : "TẮT"} "${ev.name}"?\n(tự backup file — khôi phục được ở tab Backup; xong phải Restart server)`)) return;
+      const res = await api("/api/seasonal-events/toggle", jbody({ key: ev.key, enable: next }));
+      if (!res.ok) { toast(res.error, "err"); return; }
+      active = next;
+      stateEl.textContent = active ? "ĐANG MỞ" : "ĐANG TẮT";
+      stateEl.style.color = active ? "#2e7d32" : "#8d6e63";
+      btn.textContent = active ? "Tắt event" : "Mở event";
+      toast(`✅ Đã ${active ? "mở" : "tắt"} ${ev.name}. Restart server để áp dụng.`, "ok");
+    };
+    card.querySelectorAll(".se-knob").forEach((row) => {
+      row.querySelector(".se-apply").onclick = async () => {
+        const val = row.querySelector(".se-inp").value;
+        const res = await api("/api/seasonal-events/knob", jbody({ key: ev.key, knob: row.dataset.knob, value: val }));
+        if (res.ok) toast(`✅ Đã lưu ${row.querySelector(".f-label").textContent} = ${res.value}. Restart để áp dụng.`, "ok");
+        else toast(res.error, "err");
+      };
+    });
     grid.appendChild(card);
   });
 }
