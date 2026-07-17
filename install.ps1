@@ -90,6 +90,17 @@ Remove-Item $tmpZip, $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
 Say "Da cai vao: $Dest" 'Green'
 
 # ---------- 3. Cai thu vien Python can thiet ----------
+# Don thu muc rac '~xxx' trong site-packages (xac cua lan pip upgrade bi ngat giua chung,
+# gay WARNING "Ignoring invalid distribution")
+try {
+    $sitePkgs = & $Py -c "import sysconfig;print(sysconfig.get_paths()['purelib'])"
+    if ($sitePkgs -and (Test-Path $sitePkgs)) {
+        Get-ChildItem $sitePkgs -Directory -Filter '~*' -ErrorAction Stop | ForEach-Object {
+            Say "Xoa thu muc rac: $($_.Name)" 'Yellow'
+            Remove-Item $_.FullName -Recurse -Force -ErrorAction Stop
+        }
+    }
+} catch {}
 Say "Dang cai thu vien (Flask, paramiko)..."
 # Day qua cmd de stderr cua pip (vd. WARNING ~ip) khong bi PS 5.1 boc thanh loi chet script
 cmd /c "`"$Py`" -m pip install --quiet --upgrade pip >nul 2>nul"
