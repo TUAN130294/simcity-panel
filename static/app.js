@@ -245,6 +245,7 @@ async function loadServerCfg() {
   const body = $("serverBody"); body.innerHTML = "";
   if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
   renderDroprate(body);
+  renderPrice(body);
   renderSeasonalEvents(body);
   r.sources.forEach((src) => {
     if (src.error) { renderGroup(body, "⚠️ " + src.title, "Không đọc được: " + src.error, []); return; }
@@ -280,6 +281,45 @@ async function renderDroprate(container) {
       const res = await api("/api/droprate", jbody({ scope: sc.id, mult }));
       if (res.ok) { toast(`✅ Đã đặt x${mult} — sửa ${res.changed.length} file. Restart server để áp dụng.`, "ok"); card.querySelector(".drop-cur").innerHTML = `đang: <b>x${mult}</b>`; }
       else toast(res.error, "err");
+    };
+    grid.appendChild(card);
+  });
+}
+/* ---- giá đi lại (dịch chuyển / xe / thuyền) ---- */
+async function renderPrice(container) {
+  const wrap = document.createElement("div"); wrap.className = "group";
+  wrap.innerHTML = `<div class="group-head"><span class="group-title">🐎 Giá đi lại (toàn server)</span>
+    <span class="group-note">Chỉnh hàng loạt giá dịch chuyển/xe/thuyền — đặt tất cả về 1 mức, hoặc nhân theo hệ số (x1 = trả về gốc). Restart để áp dụng.</span></div>
+    <div class="grid drop-grid"></div>`;
+  container.appendChild(wrap);
+  const grid = wrap.querySelector(".drop-grid");
+  const r = await api("/api/price");
+  if (!r.ok) { grid.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  r.scopes.forEach((sc) => {
+    const card = document.createElement("div"); card.className = "field";
+    card.dataset.search = ("giá đi lại dịch chuyển xe thuyền " + sc.title).toLowerCase();
+    if (sc.error) { card.innerHTML = `<div class="f-label">${sc.title}</div><div class="f-desc">Không đọc được: ${sc.error}</div>`; grid.appendChild(card); return; }
+    card.innerHTML = `<div class="f-top"><div class="f-label">${sc.title}</div>
+      <div class="f-ctrl"><span class="drop-cur">${sc.count} tuyến · ${sc.min}–${sc.max}</span></div></div>
+      <div class="f-ctrl" style="margin-top:6px;flex-wrap:wrap">
+        Đặt tất cả = <input class="price-set" type="number" min="0" value="${sc.min}" style="width:90px">
+        <button class="btn sm price-setb">Đặt</button>
+        <span style="opacity:.5">|</span> Nhân ×<input class="price-mul" type="number" min="0" step="0.5" value="1" style="width:60px">
+        <button class="btn sm primary price-mulb">Nhân</button>
+      </div>`;
+    card.querySelector(".price-setb").onclick = async () => {
+      const v = parseInt(card.querySelector(".price-set").value);
+      if (isNaN(v)) { toast("Giá không hợp lệ", "err"); return; }
+      if (!confirm(`Đặt TẤT CẢ giá "${sc.title}" = ${v}? (giữ nguyên tuyến -1, có backup)`)) return;
+      const res = await api("/api/price", jbody({ scope: sc.id, mode: "set", value: v }));
+      toast(res.ok ? `✅ ${res.message} (${res.changed} ô)` : res.error, res.ok ? "ok" : "err");
+    };
+    card.querySelector(".price-mulb").onclick = async () => {
+      const m = parseFloat(card.querySelector(".price-mul").value);
+      if (isNaN(m)) { toast("Hệ số không hợp lệ", "err"); return; }
+      if (!confirm(`Nhân giá "${sc.title}" ×${m}? (tính từ gốc, ×1 = trả về gốc, có backup)`)) return;
+      const res = await api("/api/price", jbody({ scope: sc.id, mode: "scale", mult: m }));
+      toast(res.ok ? `✅ ${res.message} (${res.changed} ô)` : res.error, res.ok ? "ok" : "err");
     };
     grid.appendChild(card);
   });

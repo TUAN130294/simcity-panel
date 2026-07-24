@@ -30,6 +30,7 @@ from backend import detect_service
 from backend import power_service
 from backend import tsv_service
 from backend import gm_service
+from backend import price_service
 
 app = Flask(__name__)
 PORT = 5666
@@ -338,6 +339,31 @@ def set_seasonal_event_knob():
     try:
         svc, _ = _svc()
         res = seasonal_event_service.set_knob(svc, body.get("key"), body.get("knob"), body.get("value"))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/price", methods=["GET"])
+def get_price():
+    """Hiện trạng giá đi lại từng nhóm (số ô, min, max)."""
+    try:
+        svc, _ = _svc()
+        return jsonify({"ok": True, "scopes": price_service.status(svc)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/price", methods=["POST"])
+def set_price():
+    """Chỉnh giá đi lại: body {scope, mode:'set'|'scale', value|mult}."""
+    body = request.get_json(force=True) or {}
+    try:
+        svc, _ = _svc()
+        if body.get("mode") == "set":
+            res = price_service.apply_set(svc, body.get("scope"), body.get("value"))
+        else:
+            res = price_service.apply_scale(svc, body.get("scope"), body.get("mult"))
         return jsonify({"ok": True, **res})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
