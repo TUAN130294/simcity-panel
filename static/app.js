@@ -535,7 +535,7 @@ async function saveFile() {
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
-  const showTool = ["panel", "server", "advanced", "lists"].includes(name);
+  const showTool = ["panel", "lists"].includes(name);
   document.querySelector(".toolbar").style.display = showTool ? "flex" : "none";
   if (name === "editor" && !curDir) openDir(settings.simcity_path);
   if (name === "backups") loadBackups();

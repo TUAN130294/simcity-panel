@@ -29,9 +29,7 @@
   </header>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="panel">🎛️ Bot SimCity</button>
-    <button class="tab" data-tab="server">⚙️ Máy Chủ</button>
-    <button class="tab" data-tab="advanced">🧩 Nâng cao (file khác)</button>
+    <button class="tab active" data-tab="panel">🎛️ Điều khiển</button>
     <button class="tab" data-tab="lists">📜 Danh sách dữ liệu</button>
     <button class="tab" data-tab="editor">📝 Sửa file thô</button>
     <button class="tab" data-tab="backups">🕐 Backup</button>
@@ -49,18 +47,17 @@
 
   <main class="content">
     <section id="tab-panel" class="pane active">
+      <div class="sect-head" id="sect-bot">🤖 Bot SimCity</div>
       <div id="panelBody">
         <div class="empty">Bấm <b>Nạp thông số</b> để lấy dữ liệu từ server.</div>
       </div>
-    </section>
 
-    <section id="tab-server" class="pane">
-      <div class="advanced-hint">Thông số của <b>máy chủ chính</b> (ngoài hệ bot SimCity): tỉ lệ <b>Exp/tiền rơi</b>, Tống Kim, Phong Hỏa Liên Thành, boss, bật/tắt tính năng… Sửa → <b>Lưu vào game</b> → <b>Restart server</b> mới áp dụng. Mọi lần lưu đều có trong tab Backup để khôi phục.</div>
+      <div class="sect-head" id="sect-server">⚙️ Máy Chủ</div>
+      <div class="advanced-hint">Thông số của <b>máy chủ chính</b>: tỉ lệ <b>Exp/tiền rơi</b>, rơi đồ, Tống Kim, Phong Hỏa Liên Thành, đấu giá, truy nã, bật/tắt tính năng… Sửa → <b>Lưu vào game</b> → <b>Restart server</b> mới áp dụng.</div>
       <div id="serverBody"><div class="empty">Bấm <b>Nạp thông số</b> để lấy dữ liệu từ server.</div></div>
-    </section>
 
-    <section id="tab-advanced" class="pane">
-      <div class="advanced-hint">Đây là các thông số nằm rải ở những file khác ngoài <code>config.lua</code>. Tất cả đều có nhãn tiếng Việt; ô gắn <b>[nội bộ]</b> là bánh răng của hệ thống — chỉ xem cho biết, <b>đừng đổi</b>. Các ô còn lại sửa và Lưu như bình thường.</div>
+      <div class="sect-head" id="sect-adv">🧩 Nâng cao (file khác)</div>
+      <div class="advanced-hint">Thông số nằm rải ở file khác. Ô gắn <b>[nội bộ]</b> là bánh răng hệ thống — chỉ xem cho biết, <b>đừng đổi</b>.</div>
       <div id="advancedBody"><div class="empty">Bấm <b>Nạp thông số</b> để quét.</div></div>
     </section>
 
