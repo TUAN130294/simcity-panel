@@ -245,6 +245,7 @@ async function loadServerCfg() {
   const body = $("serverBody"); body.innerHTML = "";
   if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; return; }
   renderDroprate(body);
+  renderDropDetail(body);
   renderPrice(body);
   renderSeasonalEvents(body);
   r.sources.forEach((src) => {
@@ -284,6 +285,47 @@ async function renderDroprate(container) {
     };
     grid.appendChild(card);
   });
+}
+/* ---- rơi đồ chi tiết theo từng file ---- */
+async function renderDropDetail(container) {
+  const wrap = document.createElement("div"); wrap.className = "group";
+  wrap.innerHTML = `<div class="group-head"><span class="group-title">🎯 Rơi đồ chi tiết (từng loại quái/boss)</span>
+    <span class="group-note">Chọn một loại rồi chỉnh riêng: độ hiếm (hệ số, x2 = rơi gấp đôi), tiền rơi, tỉ lệ ra đồ thuộc tính.</span></div>
+    <div class="dd-bar"></div><div class="dd-detail"></div>`;
+  container.appendChild(wrap);
+  wrap.dataset.search = "rơi đồ chi tiết quái boss độ hiếm tiền";
+  const bar = wrap.querySelector(".dd-bar"), detail = wrap.querySelector(".dd-detail");
+  const r = await api("/api/droprate-detail");
+  if (!r.ok) { bar.innerHTML = `<div class="empty">${r.error}</div>`; return; }
+  const sel = document.createElement("select"); sel.className = "dd-select";
+  sel.innerHTML = `<option value="">— Chọn loại quái/boss —</option>` +
+    r.files.map((f) => `<option value="${f.id}">${f.title}</option>`).join("");
+  bar.appendChild(sel);
+  sel.onchange = async () => {
+    detail.innerHTML = ""; if (!sel.value) return;
+    const d = await api("/api/droprate-detail?id=" + sel.value);
+    if (!d.ok) { detail.innerHTML = `<div class="empty">${d.error}</div>`; return; }
+    const x = d.detail;
+    const card = document.createElement("div"); card.className = "field";
+    card.innerHTML = `<div class="f-label">${x.title}</div>
+      <div class="f-ctrl" style="flex-wrap:wrap;gap:10px">
+        <label class="dd-f">Độ hiếm ×<input type="number" id="ddMult" step="0.5" min="0.1" value="${x.rand_mult}"></label>
+        <label class="dd-f">Tiền rơi<input type="number" id="ddMoney" min="0" value="${x.money_rate}"></label>
+        <label class="dd-f">% ra đồ thuộc tính<input type="number" id="ddMagic" min="0" value="${x.magic_rate}"></label>
+        <button class="btn sm primary" id="ddSave">💾 Lưu loại này</button>
+      </div>
+      <div class="f-desc">Độ hiếm ×2 = rơi gấp đôi, ×1 = trả về gốc. Gồm ${x.total_randrate} lát trúng thưởng.</div>`;
+    detail.appendChild(card);
+    card.querySelector("#ddSave").onclick = async () => {
+      const res = await api("/api/droprate-detail", jbody({
+        id: sel.value,
+        rand_mult: parseFloat(card.querySelector("#ddMult").value),
+        money_rate: parseInt(card.querySelector("#ddMoney").value),
+        magic_rate: parseInt(card.querySelector("#ddMagic").value),
+      }));
+      toast(res.ok ? "✅ " + res.message : res.error, res.ok ? "ok" : "err");
+    };
+  };
 }
 /* ---- giá đi lại (dịch chuyển / xe / thuyền) ---- */
 async function renderPrice(container) {

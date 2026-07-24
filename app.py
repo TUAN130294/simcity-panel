@@ -31,6 +31,7 @@ from backend import power_service
 from backend import tsv_service
 from backend import gm_service
 from backend import price_service
+from backend import droprate_detail_service
 
 app = Flask(__name__)
 PORT = 5666
@@ -364,6 +365,34 @@ def set_price():
             res = price_service.apply_set(svc, body.get("scope"), body.get("value"))
         else:
             res = price_service.apply_scale(svc, body.get("scope"), body.get("mult"))
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/droprate-detail", methods=["GET"])
+def droprate_detail_list():
+    """Danh sách file rơi đồ (+ chi tiết 1 file nếu có ?id=)."""
+    try:
+        svc, _ = _svc()
+        fid = request.args.get("id")
+        if fid:
+            return jsonify({"ok": True, "detail": droprate_detail_service.get_one(svc, fid)})
+        return jsonify({"ok": True, "files": droprate_detail_service.list_all(svc)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/droprate-detail", methods=["POST"])
+def droprate_detail_set():
+    """Chỉnh núm rơi đồ 1 file: body {id, rand_mult?, money_rate?, money_scale?, magic_rate?}."""
+    body = request.get_json(force=True) or {}
+    try:
+        svc, _ = _svc()
+        res = droprate_detail_service.patch_one(
+            svc, body.get("id"),
+            rand_mult=body.get("rand_mult"), money_rate=body.get("money_rate"),
+            money_scale=body.get("money_scale"), magic_rate=body.get("magic_rate"))
         return jsonify({"ok": True, **res})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
