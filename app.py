@@ -29,6 +29,7 @@ from backend import droprate_service
 from backend import detect_service
 from backend import power_service
 from backend import tsv_service
+from backend import gm_service
 
 app = Flask(__name__)
 PORT = 5666
@@ -619,6 +620,62 @@ def power_game():
                or "/root/quanlyserver/2.3.1"
         power_service.game_cmd(svc, action, root)
         return jsonify({"ok": True, "started": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/gm/status", methods=["GET"])
+def gm_status():
+    """Móc GM đã cài chưa + danh mục ngựa."""
+    try:
+        svc, _ = _svc()
+        return jsonify({"ok": True, "installed": gm_service.is_installed(svc),
+                        "horses": [h["name"] for h in gm_service.HORSES]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/gm/install", methods=["POST"])
+def gm_install():
+    """Cài móc GM vào mainLoop (idempotent). Nút người dùng bấm."""
+    try:
+        svc, _ = _svc()
+        res = gm_service.install_hook(svc)
+        return jsonify({"ok": True, **res})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/gm/send", methods=["POST"])
+def gm_send():
+    """Gửi 1 lệnh GM. body: {action, name, ...}."""
+    body = request.get_json(force=True) or {}
+    action = body.get("action")
+    name = (body.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Chưa nhập tên nhân vật"}), 400
+    try:
+        if action == "ping":
+            lua = gm_service.cmd_ping(name)
+        elif action == "money":
+            lua = gm_service.cmd_money(name, body.get("kind"), body.get("amount"))
+        elif action == "level":
+            lua = gm_service.cmd_level(name, body.get("level"))
+        elif action == "repute":
+            lua = gm_service.cmd_repute(name, body.get("amount"))
+        elif action == "horse":
+            lua = gm_service.cmd_horse(name, body.get("idx"))
+        elif action == "item":
+            lua = gm_service.cmd_item(name, body.get("genre"), body.get("detail"),
+                                      body.get("particular"), body.get("level", 1))
+        else:
+            return jsonify({"ok": False, "error": "Lệnh không hợp lệ"}), 400
+    except (ValueError, IndexError, TypeError) as e:
+        return jsonify({"ok": False, "error": "Dữ liệu không hợp lệ: " + str(e)}), 400
+    try:
+        svc, _ = _svc()
+        ok, msg = gm_service.send_command(svc, lua)
+        return jsonify({"ok": ok, "message": msg})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 

@@ -30,6 +30,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-tab="panel">🎛️ Điều khiển</button>
+    <button class="tab" data-tab="gm">🛡️ GM Phát Đồ</button>
     <button class="tab" data-tab="lists">📜 Danh sách dữ liệu</button>
     <button class="tab" data-tab="editor">📝 Sửa file thô</button>
     <button class="tab" data-tab="backups">🕐 Backup</button>
@@ -59,6 +60,15 @@
       <div class="sect-head" id="sect-adv">🧩 Nâng cao (file khác)</div>
       <div class="advanced-hint">Thông số nằm rải ở file khác. Ô gắn <b>[nội bộ]</b> là bánh răng hệ thống — chỉ xem cho biết, <b>đừng đổi</b>.</div>
       <div id="advancedBody"><div class="empty">Bấm <b>Nạp thông số</b> để quét.</div></div>
+    </section>
+
+    <section id="tab-gm" class="pane">
+      <div id="gmInstallBar" class="advanced-hint hidden"></div>
+      <div class="gm-namebar">
+        <label>🧙 Tên nhân vật (phải đang online trong game):</label>
+        <input id="gmName" placeholder="Gõ đúng tên nhân vật đang chơi">
+      </div>
+      <div id="gmBody"><div class="empty">Bấm <b>Nạp thông số</b> hoặc mở tab này để kiểm tra móc GM.</div></div>
     </section>
 
     <section id="tab-lists" class="pane">

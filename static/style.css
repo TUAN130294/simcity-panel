@@ -1205,3 +1205,21 @@ body.searching .group.collapsed .grid{display:grid}     /* đảm bảo bung c�
   text-shadow:0 1px 2px rgba(0,0,0,.8);
 }
 .sect-head:first-child{margin-top:2px}
+
+/* ---------- tab GM phát đồ ---------- */
+.gm-namebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 18px;
+  padding:14px 18px;background:linear-gradient(180deg,#241a0d,#1a120a);
+  border:1px solid var(--gold-3,#7a5a1e);border-radius:10px}
+.gm-namebar label{font-weight:700;color:var(--gold-bright,#f5dd8f);font-size:14px}
+.gm-namebar input{flex:1;min-width:200px;background:var(--inset,#110d07);border:1px solid var(--line-2,#53432a);
+  border-radius:8px;padding:10px 14px;color:var(--txt);font-size:15px}
+.gm-namebar input:focus{outline:none;border-color:var(--gold)}
+.gm-card{background:linear-gradient(180deg,var(--card,#1d1710),var(--card-2,#241c12));
+  border:1px solid var(--line,#382d1c);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.gm-card-title{font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--gold);margin-bottom:6px}
+.gm-desc{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.gm-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.gm-row input[type=number]{width:100px;background:var(--inset,#110d07);border:1px solid var(--line-2,#53432a);
+  border-radius:8px;padding:8px 10px;color:var(--gold-bright,#f5dd8f);font-weight:700;text-align:center}
+.gm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:8px}
+.gm-grid .btn{text-align:center}

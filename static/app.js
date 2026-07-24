@@ -471,6 +471,85 @@ async function loadGuide() {
   $("guideBody").innerHTML = r.ok ? renderMarkdown(r.md) : `<div class="empty">${r.error}</div>`;
 }
 
+/* ---------- GM phát đồ ---------- */
+let gmHorses = [];
+async function loadGM() {
+  const bar = $("gmInstallBar"), body = $("gmBody");
+  const r = await api("/api/gm/status");
+  if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; bar.classList.add("hidden"); return; }
+  gmHorses = r.horses || [];
+  if (!r.installed) {
+    bar.classList.remove("hidden");
+    bar.innerHTML = `⚠️ <b>Chưa cài móc GM.</b> Tính năng phát đồ cần cài 1 lần vào game (tự vá <code>main.lua</code>, có backup).
+      Bấm nút rồi <b>Restart server</b> 1 lần để móc hoạt động.
+      <div style="margin-top:8px"><button id="gmInstall" class="btn primary sm">🔧 Cài móc GM vào game</button></div>`;
+    $("gmInstall").onclick = async () => {
+      if (!confirm("Cài móc GM vào game? App sẽ chèn dòng gọi GMBoxPoll vào mainLoop (tự backup, chạy lại không hỏng). Sau đó cần Restart server 1 lần.")) return;
+      $("gmInstall").disabled = true; $("gmInstall").textContent = "Đang cài...";
+      const res = await api("/api/gm/install", { method: "POST" });
+      if (res.ok) { toast(res.already ? "Móc GM đã có sẵn" : "✅ Đã cài móc GM — bấm ⏻ Nguồn → Khởi động lại game để kích hoạt", "ok"); loadGM(); }
+      else { toast(res.error, "err"); $("gmInstall").disabled = false; $("gmInstall").textContent = "🔧 Cài móc GM vào game"; }
+    };
+  } else {
+    bar.classList.add("hidden");
+  }
+  renderGMActions(body);
+}
+
+function gmSend(action, extra, okToast) {
+  const name = $("gmName").value.trim();
+  if (!name) { toast("Nhập tên nhân vật trước", "err"); return Promise.resolve(); }
+  return api("/api/gm/send", jbody({ action, name, ...extra })).then((r) => {
+    toast(r.ok ? "✅ " + r.message : "⚠️ " + (r.message || r.error), r.ok ? "ok" : "err");
+  });
+}
+
+function renderGMActions(body) {
+  body.innerHTML = "";
+  // 0. test kênh
+  body.appendChild(gmCard("🔌 Kiểm tra kết nối", "Nhắn 1 câu cho nhân vật để chắc móc GM đang chạy.", [
+    { label: "Gửi tin thử", cls: "primary", on: () => gmSend("ping", {}) },
+  ]));
+  // 1. tiền
+  const money = document.createElement("div"); money.className = "gm-card";
+  money.innerHTML = `<div class="gm-card-title">💰 Phát tiền</div>
+    <div class="gm-row"><input type="number" id="gmMoneyAmt" value="100" min="0"> <span class="gm-unit"></span>
+      <button class="btn sm" data-k="nganluong">Ngân lượng (vạn)</button>
+      <button class="btn sm" data-k="tiendong">Tiền Đồng</button>
+      <button class="btn sm" data-k="knb">Kim Nguyên Bảo</button></div>`;
+  money.querySelectorAll("button[data-k]").forEach((b) => b.onclick = () =>
+    gmSend("money", { kind: b.dataset.k, amount: parseInt($("gmMoneyAmt").value) || 0 }));
+  body.appendChild(money);
+  // 2. cấp + danh vọng
+  const lv = document.createElement("div"); lv.className = "gm-card";
+  lv.innerHTML = `<div class="gm-card-title">⬆️ Cấp & danh vọng</div>
+    <div class="gm-row">Nâng lên cấp <input type="number" id="gmLevel" value="99" min="1" max="200">
+      <button class="btn sm" id="gmLevelBtn">Lên cấp</button></div>
+    <div class="gm-row">Thêm <input type="number" id="gmRep" value="1000" min="0"> điểm danh vọng
+      <button class="btn sm" id="gmRepBtn">Cộng danh vọng</button></div>`;
+  lv.querySelector("#gmLevelBtn").onclick = () => gmSend("level", { level: parseInt($("gmLevel").value) || 1 });
+  lv.querySelector("#gmRepBtn").onclick = () => gmSend("repute", { amount: parseInt($("gmRep").value) || 0 });
+  body.appendChild(lv);
+  // 3. ngựa
+  const horse = document.createElement("div"); horse.className = "gm-card";
+  horse.innerHTML = `<div class="gm-card-title">🐎 Phát ngựa</div><div class="gm-grid"></div>`;
+  const g = horse.querySelector(".gm-grid");
+  gmHorses.forEach((nm, i) => {
+    const b = document.createElement("button"); b.className = "btn sm"; b.textContent = nm;
+    b.onclick = () => gmSend("horse", { idx: i });
+    g.appendChild(b);
+  });
+  body.appendChild(horse);
+}
+
+function gmCard(title, desc, buttons) {
+  const c = document.createElement("div"); c.className = "gm-card";
+  c.innerHTML = `<div class="gm-card-title">${title}</div><div class="gm-desc">${desc}</div><div class="gm-row"></div>`;
+  const row = c.querySelector(".gm-row");
+  buttons.forEach((b) => { const el = document.createElement("button"); el.className = "btn sm " + (b.cls || ""); el.textContent = b.label; el.onclick = b.on; row.appendChild(el); });
+  return c;
+}
+
 /* ---------- backups ---------- */
 async function loadBackups() {
   const body = $("backupsBody"); body.innerHTML = `<div class="empty">Đang tải lịch sử backup...</div>`;
@@ -538,6 +617,7 @@ function switchTab(name) {
   const showTool = ["panel", "lists"].includes(name);
   document.querySelector(".toolbar").style.display = showTool ? "flex" : "none";
   if (name === "editor" && !curDir) openDir(settings.simcity_path);
+  if (name === "gm") loadGM();
   if (name === "backups") loadBackups();
   if (name === "guide" && !$("guideBody").dataset.loaded) { $("guideBody").dataset.loaded = "1"; loadGuide(); }
 }
@@ -615,5 +695,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     detectServer();
     return;
   }
+  // Mở sẵn tab theo URL (#gm, #lists...) — tiện deep-link
+  const h = (location.hash || "").replace("#", "");
+  if (h && document.querySelector(`.tab[data-tab="${h}"]`)) switchTab(h);
   loadAll();
 });
