@@ -224,6 +224,53 @@ def cmd_horse(name, idx):
     return _wrap_player(name, body, "Da phat ngua " + h["name"])
 
 
+def cmd_goldset(name, ids):
+    """Phát 1 bộ trang bị Hoàng Kim (danh sách gold-item id) bằng AddGoldItem(0,id)."""
+    ids = [int(i) for i in ids]
+    lines = "\n    ".join("AddGoldItem(0, %d)" % i for i in ids)
+    body = ("if CalcFreeItemCellCount() < %d then GMBox_Result(" % (len(ids) * 6) + _q("TUI DAY (can it nhat "
+            + str(len(ids)) + " o rong)") + "); PlayerIndex = old; return end\n    " + lines)
+    return _wrap_player(name, body, "Da phat bo trang bi (" + str(len(ids)) + " mon)")
+
+
+def cmd_purple(name, genre, detail, particular):
+    """Phát đồ tím: loop 5 series ngũ hành (AddQualityItem quality=2 level=10)."""
+    g, d, p = int(genre), int(detail), int(particular)
+    body = ("if CalcFreeItemCellCount() < 5 then GMBox_Result(" + _q("TUI DAY") + "); PlayerIndex = old; return end\n"
+            "    for i = 0, 4 do AddQualityItem(2, %d, %d, %d, 10, i, 0, -1, -1, -1, -1, -1, -1) end" % (g, d, p))
+    return _wrap_player(name, body, "Da phat do tim (5 mon ngu hanh)")
+
+
+def cmd_skill(name, base_ids, adv_ids):
+    """Học skill 1 phái: base cấp 1 (nếu chưa có), adv đặt cấp 20 (trừ support skill)."""
+    base = "\n    ".join("if HaveMagic(%d) == -1 then AddMagic(%d) end" % (i, i) for i in base_ids)
+    adv_lines = []
+    from backend import gm_catalog
+    for i in adv_ids:
+        if i in gm_catalog._SKILL_SUPPORT:
+            adv_lines.append("if HaveMagic(%d) == -1 then AddMagic(%d) end" % (i, i))
+        else:
+            adv_lines.append("AddMagic(%d, 20)" % i)
+    body = base + "\n    " + "\n    ".join(adv_lines)
+    return _wrap_player(name, body, "Da hoc skill phai (chac chan dung phai moi len duoc)")
+
+
+def cmd_boss(name, npc_id, series, level):
+    """Triệu boss tại chỗ nhân vật đang đứng (cần map cho phép chiến đấu)."""
+    npc_id, series, level = int(npc_id), int(series), int(level)
+    body = (
+        "if GetFightState() == 0 then GMBox_Result(" + _q("KHONG THE: dang o map cam danh (phi chien). "
+        "Di toi map co the danh nhau roi thu lai.") + "); PlayerIndex = old; return end\n"
+        "    local nw, nx, ny = GetWorldPos()\n"
+        "    local bi = AddNpcEx(%d, %d, %d, SubWorldID2Idx(nw), nx*32, ny*32, 1, " % (npc_id, level, series) + _q("Boss") + ", 1)\n"
+        "    if bi and bi > 0 then\n"
+        "      SetNpcDeathScript(bi, \"\\\\script\\\\missions\\\\boss\\\\bossdeath.lua\")\n"
+        "      SetNpcParam(bi, 1, %d)\n" % npc_id +
+        "      SetNpcTimer(bi, 120*60*18)\n"
+        "    end")
+    return _wrap_player(name, body, "Da trieu boss tai cho ban dung")
+
+
 def cmd_ping(name):
     """Lệnh vô hại để test kênh: chỉ nhắn 1 câu cho nhân vật."""
     body = 'Msg2Player("GM Tool: ket noi thanh cong!")'

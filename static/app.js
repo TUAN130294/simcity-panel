@@ -566,12 +566,13 @@ async function loadGuide() {
 }
 
 /* ---------- GM phát đồ ---------- */
-let gmHorses = [];
+let gmHorses = [], gmData = {};
 async function loadGM() {
   const bar = $("gmInstallBar"), body = $("gmBody");
   const r = await api("/api/gm/status");
   if (!r.ok) { body.innerHTML = `<div class="empty">${r.error}</div>`; bar.classList.add("hidden"); return; }
   gmHorses = r.horses || [];
+  gmData = r;
   if (!r.installed) {
     bar.classList.remove("hidden");
     bar.innerHTML = `⚠️ <b>Chưa cài móc GM.</b> Tính năng phát đồ cần cài 1 lần vào game (tự vá <code>main.lua</code>, có backup).
@@ -634,6 +635,64 @@ function renderGMActions(body) {
     g.appendChild(b);
   });
   body.appendChild(horse);
+  // 4. Hoàng Kim môn phái (chọn phái -> bộ)
+  if (gmData.hkmp) {
+    const hk = document.createElement("div"); hk.className = "gm-card";
+    hk.innerHTML = `<div class="gm-card-title">👑 Trang bị Hoàng Kim môn phái</div>
+      <div class="gm-desc">Chọn phái rồi bấm bộ trang bị muốn phát (mỗi bộ 5–6 món, cần túi trống).</div>
+      <div class="gm-row"><select class="gm-sel hkmp-fac"></select></div><div class="gm-grid hkmp-sets"></div>`;
+    const facSel = hk.querySelector(".hkmp-fac"), sets = hk.querySelector(".hkmp-sets");
+    facSel.innerHTML = Object.keys(gmData.hkmp).map((f) => `<option>${f}</option>`).join("");
+    const renderSets = () => {
+      sets.innerHTML = "";
+      (gmData.hkmp[facSel.value] || []).forEach((setName) => {
+        const b = document.createElement("button"); b.className = "btn sm"; b.textContent = setName;
+        b.onclick = () => gmSend("hkmp", { faction: facSel.value, set: setName });
+        sets.appendChild(b);
+      });
+    };
+    facSel.onchange = renderSets; renderSets();
+    body.appendChild(hk);
+  }
+  // 5. HK set + skill (chọn phái học skill)
+  if (gmData.hkset) {
+    const s = document.createElement("div"); s.className = "gm-card";
+    s.innerHTML = `<div class="gm-card-title">💠 Bộ Hoàng Kim (An Bang / Định Quốc...)</div><div class="gm-grid hkset-grid"></div>`;
+    const grid = s.querySelector(".hkset-grid");
+    gmData.hkset.forEach((nm) => {
+      const b = document.createElement("button"); b.className = "btn sm"; b.textContent = nm;
+      b.onclick = () => gmSend("hkset", { set: nm });
+      grid.appendChild(b);
+    });
+    body.appendChild(s);
+  }
+  if (gmData.skills) {
+    const sk = document.createElement("div"); sk.className = "gm-card";
+    sk.innerHTML = `<div class="gm-card-title">📖 Học skill môn phái</div>
+      <div class="gm-desc">Nhân vật phải ĐANG thuộc phái đó thì mới học được. Học toàn bộ skill của phái (kể cả 90/120).</div>
+      <div class="gm-grid skill-grid"></div>`;
+    const grid = sk.querySelector(".skill-grid");
+    gmData.skills.forEach((ph) => {
+      const b = document.createElement("button"); b.className = "btn sm"; b.textContent = ph;
+      b.onclick = () => gmSend("skill", { faction: ph });
+      grid.appendChild(b);
+    });
+    body.appendChild(sk);
+  }
+  // 6. Triệu boss
+  if (gmData.bosses) {
+    const bs = document.createElement("div"); bs.className = "gm-card";
+    bs.innerHTML = `<div class="gm-card-title">🐲 Triệu Boss Hoàng Kim</div>
+      <div class="gm-desc">Boss xuất hiện ngay chỗ nhân vật đang đứng — phải ở map đánh nhau được (không phải thành hòa bình).</div>
+      <div class="gm-grid boss-grid"></div>`;
+    const grid = bs.querySelector(".boss-grid");
+    gmData.bosses.forEach((nm, i) => {
+      const b = document.createElement("button"); b.className = "btn sm"; b.textContent = nm;
+      b.onclick = () => gmSend("boss", { idx: i });
+      grid.appendChild(b);
+    });
+    body.appendChild(bs);
+  }
 }
 
 function gmCard(title, desc, buttons) {

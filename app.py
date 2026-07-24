@@ -684,8 +684,13 @@ def gm_status():
     """Móc GM đã cài chưa + danh mục ngựa."""
     try:
         svc, _ = _svc()
+        from backend import gm_catalog
         return jsonify({"ok": True, "installed": gm_service.is_installed(svc),
-                        "horses": [h["name"] for h in gm_service.HORSES]})
+                        "horses": [h["name"] for h in gm_service.HORSES],
+                        "hkmp": {ph: list(sets.keys()) for ph, sets in gm_catalog.HKMP.items()},
+                        "hkset": list(gm_catalog.HK_SET.keys()),
+                        "bosses": [b["name"] for b in gm_catalog.BOSS],
+                        "skills": list(gm_catalog.SKILL.keys())})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
@@ -723,6 +728,21 @@ def gm_send():
         elif action == "item":
             lua = gm_service.cmd_item(name, body.get("genre"), body.get("detail"),
                                       body.get("particular"), body.get("level", 1))
+        elif action == "hkmp":
+            from backend import gm_catalog
+            ids = gm_catalog.HKMP[body["faction"]][body["set"]]
+            lua = gm_service.cmd_goldset(name, ids)
+        elif action == "hkset":
+            from backend import gm_catalog
+            lua = gm_service.cmd_goldset(name, gm_catalog.HK_SET[body["set"]])
+        elif action == "skill":
+            from backend import gm_catalog
+            sk = gm_catalog.SKILL[body["faction"]]
+            lua = gm_service.cmd_skill(name, sk["base"], sk["adv"])
+        elif action == "boss":
+            from backend import gm_catalog
+            b = gm_catalog.BOSS[int(body["idx"])]
+            lua = gm_service.cmd_boss(name, b["npcId"], b["series"], b["level"])
         else:
             return jsonify({"ok": False, "error": "Lệnh không hợp lệ"}), 400
     except (ValueError, IndexError, TypeError) as e:
