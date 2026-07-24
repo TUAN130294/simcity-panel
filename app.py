@@ -92,7 +92,7 @@ def detect_server():
     body = request.get_json(force=True) or {}
     cur = cfg.load_settings()
     try:
-        res = detect_service.autodetect(
+        res = detect_service.autodetect_all(
             user=body.get("user") or cur.get("user") or "root",
             password=body.get("password") or "",
             port=int(body.get("port") or cur.get("port") or 22),

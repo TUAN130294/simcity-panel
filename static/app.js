@@ -21,28 +21,40 @@ async function saveSettings() {
     .forEach((k) => p[k] = $("s_" + k).value); p.encoding = $("encoding").value;
   settings = await api("/api/settings", jbody(p)); $("settingsMsg").textContent = "Đã lưu."; toast("Đã lưu cài đặt", "ok");
 }
+function applyServer(s) {
+  $("s_host").value = s.host; $("s_port").value = s.port || 22; $("s_user").value = s.user || "root";
+  if (s.password) $("s_password").value = s.password;
+  if (s.client_config_ini) $("s_client_config_ini").value = s.client_config_ini;
+  if (s.client_dir) $("s_client_dir").value = s.client_dir;
+  $("settingsMsg").innerHTML = `✅ Đã chọn <b>${s.host}</b>${s.label ? " (" + s.label + ")" : ""} — bấm <b>Lưu</b> để dùng server này.`;
+  toast("Đã chọn " + s.host + " — bấm Lưu", "ok");
+}
 async function detectServer() {
   const btn = $("btnDetect"), msg = $("settingsMsg");
   btn.disabled = true; btn.textContent = "⏳ Đang dò...";
-  msg.textContent = "Đang tìm máy chủ game (đọc config.ini của client, nếu không có thì quét mạng nội bộ — mất tới 30 giây)...";
+  msg.innerHTML = "Đang tìm máy chủ game (đọc config.ini của client + quét mạng nội bộ — mất tới 30 giây)...";
   try {
     const r = await api("/api/detect", jbody({
       user: $("s_user").value, port: $("s_port").value,
-      // mật khẩu chỉ gửi khi người dùng đã gõ thật (dấu ******** = giữ nguyên cái cũ)
       password: $("s_password").value === "********" ? "" : $("s_password").value,
     }));
-    if (r.ok && r.found) {
-      $("s_host").value = r.host; $("s_port").value = r.port || 22; $("s_user").value = r.user || "root";
-      if (r.password) $("s_password").value = r.password;
-      if (r.client_config_ini) $("s_client_config_ini").value = r.client_config_ini;
-      if (r.client_dir) $("s_client_dir").value = r.client_dir;
-      msg.textContent = `✅ Tìm thấy máy chủ ${r.host} (nguồn: ${r.source})` +
-        (r.verified ? " — đã đăng nhập thử và thấy thư mục game." : " — CHƯA đăng nhập thử được, kiểm tra lại mật khẩu hoặc máy ảo đã bật chưa.");
-      toast(r.verified ? "Đã dò ra server, bấm Lưu để dùng" : "Tìm thấy máy nhưng chưa đăng nhập được", r.verified ? "ok" : "err");
-    } else {
-      msg.textContent = "❌ " + (r.error || "Không tìm thấy máy chủ nào.");
-      toast(r.error || "Không tìm thấy", "err");
-    }
+    const servers = (r.ok && r.servers) || [];
+    if (!servers.length) { msg.textContent = "❌ " + (r.error || "Không tìm thấy máy chủ nào."); toast(r.error || "Không tìm thấy", "err"); return; }
+    if (servers.length === 1) { applyServer(servers[0]); return; }
+    // nhiều server -> cho người dùng chọn
+    msg.innerHTML = `Tìm thấy <b>${servers.length} máy chủ</b>. Bấm chọn bản bạn muốn điều khiển:`;
+    const box = document.createElement("div"); box.className = "srv-list";
+    servers.forEach((s) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "srv-item" + (s.verified ? "" : " srv-off");
+      const src = s.source || "";
+      b.innerHTML = `<span class="srv-ip">${s.host}</span>` +
+        `<span class="srv-meta">${s.label || src}${s.verified ? "" : " · chưa đăng nhập được"}</span>` +
+        `<span class="srv-badge">${s.verified ? "✅ sẵn sàng" : "⚠️"}</span>`;
+      b.onclick = () => { applyServer(s); box.querySelectorAll(".srv-item").forEach((x) => x.classList.remove("sel")); b.classList.add("sel"); };
+      box.appendChild(b);
+    });
+    const old = msg.parentNode.querySelector(".srv-list"); if (old) old.remove();
+    msg.parentNode.insertBefore(box, msg.nextSibling);
   } finally {
     btn.disabled = false; btn.textContent = "🔍 Tự dò server";
   }
